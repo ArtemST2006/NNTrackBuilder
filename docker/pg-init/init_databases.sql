@@ -1,0 +1,2 @@
+CREATE DATABASE profile;
+GRANT ALL PRIVILEGES ON DATABASE profile TO user_user;

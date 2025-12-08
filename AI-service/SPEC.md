@@ -34,6 +34,10 @@
             (должны быть координаты мест + описание)
         }
     ]
+    "description": string,
+    "time": float,
+    "long": float,
+    "advice": string,
 }
 ```
 

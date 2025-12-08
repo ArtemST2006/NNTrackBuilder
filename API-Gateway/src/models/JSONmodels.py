@@ -14,3 +14,11 @@ class UserSignInResponse(BaseModel):
     user_id: int
     username: str
     message: str
+
+class AIRequest(BaseModel):
+    category: str
+    time: float
+    cords: str
+    place: str
+
+

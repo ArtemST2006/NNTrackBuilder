@@ -1,0 +1,8 @@
+uliweb-alembic
+fastapi
+uvicorn[standard]
+sqlalchemy
+asyncpg
+alembic
+pydantic
+pydantic-settings

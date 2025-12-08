@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+aiokafka
+websockets
+pydantic
+urllib3

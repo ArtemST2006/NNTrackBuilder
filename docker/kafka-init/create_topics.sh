@@ -3,14 +3,12 @@
 KAFKA_BIN="/opt/bitnami/kafka/bin/kafka-topics.sh"
 BOOTSTRAP_SERVER="kafka:9092"
 
-echo "⏳ Waiting for Kafka to be ready..."
-
 until $KAFKA_BIN --list --bootstrap-server $BOOTSTRAP_SERVER; do
-  echo "Kafka is not ready yet... sleeping 2s"
+  echo "Kafka is not ready... sleeping 2s"
   sleep 2
 done
 
-echo "✅ Kafka is ready! Starting topic creation..."
+echo "Kafka is ready! Starting topic creation..."
 
 create_topic() {
   local topic_name=$1
@@ -26,4 +24,4 @@ create_topic "ai.makePoints.request"
 create_topic "ai.makePoints.response"
 create_topic "service.errors"
 
-echo "🎉 All topics created successfully."
+echo "All topics created successfully."

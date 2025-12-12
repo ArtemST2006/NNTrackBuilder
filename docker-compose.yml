@@ -3,6 +3,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15
+    container_name: postgres
     environment:
       - POSTGRES_DB=user_db
       - POSTGRES_USER=user_user
@@ -19,7 +20,7 @@ services:
       retries: 5
 
   kafka:
-    image: bitnamilegacy/kafka:latest
+    image: docker.io/bitnamilegacy/kafka:4.0.0
     container_name: kafka
     ports:
       - "9092:9092"
@@ -37,71 +38,72 @@ services:
       - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
       - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=1
       - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+    healthcheck:
+      test: [ "CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/9092'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
     volumes:
       - kafka_data:/bitnami/kafka
 
   kafka-init:
-    image: bitnamilegacy/kafka:latest
+    image: docker.io/bitnamilegacy/kafka:4.0.0
     container_name: kafka-init
     depends_on:
-      - kafka
+      kafka:
+        condition:
+          service_healthy
     volumes:
       - ./docker/kafka-init/create_topics.sh:/create_topics.sh
     command: [ "/bin/bash", "/create_topics.sh" ]
 
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: kafka-ui
-    depends_on:
-      - kafka
-    ports:
-      - "8080:8080"
-    environment:
-      - KAFKA_CLUSTERS_0_NAME=local
-      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
-      - KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL=PLAINTEXT
-
-#  backend:
-#    build: ./backend
-#      environment:
-#        DATABASE_URL: ${DATABASE_URL}
-#        DB_HOST: ${DB_HOST}
-#        DB_PORT: ${DB_PORT}
-#        DB_NAME: ${DB_NAME}
-#        DB_USER: ${DB_USER}
-#        DB_PASSWORD: ${DB_PASSWORD}
-#        SSL_MODE: ${SSL_MODE}
-#        REDIS_URL: ${REDIS_URL}
-#        JWT_SECRET: ${JWT_SECRET}
-#        API_KEY: ${API_KEY}
-#        GIGACHAT_CLIENT_ID: ${GIGACHAT_CLIENT_ID}
-#        GIGACHAT_CLIENT_SECRET: ${GIGACHAT_CLIENT_SECRET}
-#        GIGACHAT_SCOPE: ${GIGACHAT_SCOPE}
-#        AI_SERVICE: ${AI_SERVICE}
-#    ports:
-#      - "3000:3000"
+#  kafka-ui:
+#    image: provectuslabs/kafka-ui:latest
+#    container_name: kafka-ui
 #    depends_on:
-#      postgres:
-#        condition: service_healthy
-#      redis:
-#        condition: service_healthy
-#    volumes:
-#      - ./uploads:/app/uploads
-
-#  frontend:
-#    build:
-#      context: ./frontend
-#      dockerfile: Dockerfile
-#      args:
-#        VITE_API_URL: ${VITE_API_URL}
+#      - kafka
+#    ports:
+#      - "8080:8080"
 #    environment:
-#      VITE_API_URL: ${VITE_API_URL}
-#      VITE_WS_URL: ${VITE_WS_URL}
-#    ports:
-#      - "80:80"
-#    depends_on:
-#      - backend
+#      - KAFKA_CLUSTERS_0_NAME=local
+#      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+#      - KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL=PLAINTEXT
+
+  api-gateway:
+    build: ./API-Gateway
+    container_name: api-gateway
+    environment:
+      - KAFKA_BOOTSTRAP=kafka:9092
+    ports:
+      - "8000:8000"
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  user-service:
+    build: ./User-service
+    environment:
+      - POSTGRES_DB=user_db
+      - POSTGRES_USER=user_user
+      - POSTGRES_PASSWORD=123
+      - POSTGRES_PORT=5432
+      - POSTGRES_HOST=postgres
+    container_name: user-service
+    ports:
+      - "8001:8001"
+    depends_on:
+      - postgres
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - api-gateway
+      - user-service
 
 volumes:
   postgres_data:

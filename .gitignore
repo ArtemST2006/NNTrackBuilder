@@ -72,7 +72,3 @@ Thumbs.db
 .mypy_cache/
 .dmypy.json
 dmypy.json
-
-.vscode
-theory
-

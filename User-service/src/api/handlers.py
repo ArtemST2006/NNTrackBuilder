@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from src.models.JSONmodels import UserSignInResponse, UserSignIpRequest, UserSignUpRequest
 from src.database import get_db
 from src.repository.user_postgres import UserRepository
+from src.midlware.utils import verify_password
 
 router = APIRouter()
 
@@ -34,7 +35,7 @@ async def create_user(user_data: UserSignUpRequest, user_repo: UserRepository = 
     except IntegrityError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="User already exists (conflict)"
+            detail="User already exists"
         )
     except Exception as e:
         print(f"Internal Error: {e}")
@@ -54,7 +55,7 @@ async def login(user_data: UserSignIpRequest, user_repo: UserRepository = Depend
             detail=f"User with email {user_data.email} not exist"
         )
 
-    if existing_user.password != user_data.password:
+    if verify_password(user_data.password, existing_user.password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"{user_data.password} - is incorrect password"

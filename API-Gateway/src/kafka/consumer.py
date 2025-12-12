@@ -2,7 +2,7 @@ import json
 import logging
 import asyncio  # <--- Добавил импорт
 from aiokafka import AIOKafkaConsumer
-from src.config import KAFKA_BOOTSTRAP, KAFKA_TOPIC_RESPONSE, KAFKA_GROUP_ID
+from src.config import KAFKA_BOOTSTRAP, KAFKA_TOPIC_AI_RESPONSE, KAFKA_GROUP_ID
 from src.managers import manager
 
 logger = logging.getLogger(__name__)
@@ -14,9 +14,9 @@ class KafkaResponseConsumer:
         self.consumer = None
 
     async def start(self):
-        logger.info(f"CONSUMER: Starting... Topic: {KAFKA_TOPIC_RESPONSE}, Group: {KAFKA_GROUP_ID}")
+        logger.info(f"CONSUMER: Starting... Topic: {KAFKA_TOPIC_AI_RESPONSE}, Group: {KAFKA_GROUP_ID}")
         self.consumer = AIOKafkaConsumer(
-            KAFKA_TOPIC_RESPONSE,
+            KAFKA_TOPIC_AI_RESPONSE,
             bootstrap_servers=KAFKA_BOOTSTRAP,
             group_id=KAFKA_GROUP_ID,
             auto_offset_reset='latest',

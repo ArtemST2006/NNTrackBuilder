@@ -72,3 +72,42 @@ Thumbs.db
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# ==========================================
+# --- Frontend (Node.js / React / Vue) ---
+# ==========================================
+
+# Зависимости (Самое важное! Эта папка весит сотни мегабайт)
+node_modules/
+*/node_modules/
+
+# Логи ошибок пакетных менеджеров
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Папки сборки (Production build)
+# Эти папки создаются командой build и не нужны в гите
+build/
+dist/
+.next/
+.nuxt/
+out/
+
+# Кэши линтеров и пакетов
+.eslintcache
+.npm/
+.cache/
+.parcel-cache/
+
+# Файлы окружения фронтенда (если они есть)
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Тесты (Jest / Cypress)
+coverage/
+cypress/videos/
+cypress/screenshots/

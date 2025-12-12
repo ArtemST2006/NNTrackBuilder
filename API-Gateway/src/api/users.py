@@ -2,15 +2,17 @@ import httpx
 from fastapi import APIRouter, HTTPException, status
 from src.models.JSONmodels import UserSignInResponse, UserSignIpRequest, UserSignUpRequest
 from src.config import USER_SERVICE_URL
-from src.kafka.producer import kafka_producer
-from src.config import *
+from src.midlware.utils import get_password_hash, create_access_token
 
-router = APIRouter()
+router = APIRouter(prefix="/api")
 
-@router.post("/sign-up", status_code=status.HTTP_200_OK) # create new user
+@router.post("/sign-up", status_code=status.HTTP_201_CREATED) # create new user
 async def sign_up(user_data: UserSignUpRequest):
     async with httpx.AsyncClient() as client:
         try:
+            print(user_data.password)
+            hash_password = get_password_hash(str(user_data.password))
+            user_data.password = hash_password
             response = await client.post(
                 f"{USER_SERVICE_URL}/create_user",
                 json=user_data.model_dump()
@@ -37,7 +39,7 @@ async def sign_up(user_data: UserSignUpRequest):
     return response.json()
 
 
-@router.post("/sign-in", response_model=UserSignInResponse, status_code=status.HTTP_201_CREATED) #  log in
+@router.post("/sign-in", response_model=UserSignInResponse, status_code=status.HTTP_200_OK) #  log in
 async def sign_in(user_data: UserSignIpRequest):
     async with httpx.AsyncClient() as client:
         try:
@@ -64,4 +66,12 @@ async def sign_in(user_data: UserSignIpRequest):
             detail=error_detail
         )
 
-    return response.json()
+    data = response.json()
+    user_id = data.get("user_id")
+
+    access_token = create_access_token(data={"user_id": user_id})
+
+    return UserSignInResponse(
+        **data,
+        token=access_token,
+    )

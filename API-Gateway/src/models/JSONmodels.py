@@ -11,14 +11,20 @@ class UserSignUpRequest(BaseModel):
     password: str
 
 class UserSignInResponse(BaseModel):
+    token: str
     user_id: int
     username: str
     message: str
 
 class AIRequest(BaseModel):
-    category: str
+    category: list
     time: float
     cords: str
     place: str
+
+
+class AcceptResponse(BaseModel):
+    user_id: int
+    task_id: str
 
 

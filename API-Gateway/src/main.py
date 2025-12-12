@@ -1,10 +1,13 @@
 import asyncio
-from fastapi import FastAPI
+import logging
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
 
-from src.api.users import router as users_router
-from src.config import KAFKA_TOPIC_REQUEST
+from src.api import router as main_router
+from src.config import KAFKA_TOPIC_AI_REQUEST
 from src.kafka.producer import kafka_producer
 from src.kafka.consumer import kafka_consumer
 from src.managers import manager
@@ -33,7 +36,29 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-app.include_router(users_router)
+app.include_router(main_router)
+logger = logging.getLogger(__name__)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: str):
+    await manager.connect(user_id, websocket)
+    try:
+        logger.info("attempt to connect ws")
+        while True:
+            data = await websocket.receive_text()
+
+    except WebSocketDisconnect:
+        manager.disconnect(user_id)
+        logger.info(f"User {user_id} disconnected")
+
 
 if __name__ == "__main__":
     uvicorn.run(

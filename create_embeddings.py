@@ -29,27 +29,8 @@ def load_places_data(data_file: str) -> List[Dict]:
         exit(1)
 
 def prepare_embedding_text(place: Dict) -> str:
-    parts = []
-    
-    if place.get("name"):
-        parts.append(place["name"])
-    
-    if place.get("categories"):
-        cats = ", ".join(place["categories"])
-        parts.append(f"Категории: {cats}")
-    
-    if place.get("semantic_tags"):
-        tags = ", ".join(place["semantic_tags"])
-        parts.append(f"Теги: {tags}")
-    
-    if place.get("address"):
-        parts.append(f"Адрес: {place['address']}")
-    
-    if place.get("rating"):
-        parts.append(f"Рейтинг: {place['rating']}")
-    
-    text = ". ".join(parts)
-    return text if text else "N/A"
+    if place.get("search_text"):
+        return place["search_text"]
 
 def create_embeddings(places: List[Dict], model_name: str = MODEL_NAME) -> np.ndarray:
     print(f"\nЗагрузка {model_name}")

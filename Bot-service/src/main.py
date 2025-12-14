@@ -1,55 +1,70 @@
 import asyncio
 import logging
-import os
 from aiogram import Bot, Dispatcher
-from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram.enums import ParseMode
+from aiogram.fsm.storage.memory import MemoryStorage
+
+from config import config
+
+# ПРЯМЫЕ ИМПОРТЫ БЕЗ ЧЕРЕЗ __init__.py
+from handlers.start import router as start_router
+from handlers.help import router as help_router
+from handlers.location import router as location_router
+from handlers.route import router as route_router
 
 # Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - [%(levelname)s] - %(message)s"
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 async def main():
-    # Получаем токен
-    BOT_TOKEN = os.getenv("BOT_TOKEN")
-    if not BOT_TOKEN:
-        logger.error("❌ BOT_TOKEN не найден в переменных окружения!")
+    """Основная функция запуска бота"""
+    
+    try:
+        # Проверяем конфигурацию
+        config.validate()
+        config.print_info()
+    except ValueError as e:
+        logger.error(f"❌ Ошибка конфигурации: {e}")
+        logger.info("💡 Создайте файл Bot-service/.env с BOT_TOKEN=ваш_токен")
         return
     
-    logger.info("🚀 Запускаю Telegram бота...")
+    # Создаем бота и хранилище состояний
+    bot = Bot(token=config.BOT_TOKEN, parse_mode=ParseMode.HTML)
+    storage = MemoryStorage()
+    dp = Dispatcher(storage=storage)
     
-    # Создаем бота
-    bot = Bot(token=BOT_TOKEN)
-    dp = Dispatcher()
+    # Подключаем роутеры
+    dp.include_router(start_router)
+    dp.include_router(help_router)
+    dp.include_router(location_router)
+    dp.include_router(route_router)
+    
+    # Обработчик неизвестных команд
+    # @dp.message()
+    # async def handle_unknown(message):
+    #     await message.answer(
+    #         "🤔 Не понял команду.\n\n"
+    #         "Используйте:\n"
+    #         "/start - Начало работы\n"
+    #         "/route - Создать маршрут\n"
+    #         "/help - Помощь"
+    #     )
     
     # Получаем информацию о боте
     bot_info = await bot.get_me()
-    logger.info(f"✅ Бот идентифицирован: @{bot_info.username} ({bot_info.full_name})")
+    logger.info(f"✅ Бот запущен: @{bot_info.username} ({bot_info.full_name})")
+    logger.info("⏳ Ожидаю сообщения...")
     
-    # Обработчик /start
-    @dp.message(Command("start"))
-    async def cmd_start(message: Message):
-        logger.info(f"👤 Пользователь {message.from_user.id} вызвал /start")
-        await message.answer(
-            "🤖 <b>Тестовый бот запущен!</b>\n\n"
-            "✅ Docker контейнер работает\n"
-            "✅ Бот успешно запущен\n"
-            "✅ Сообщения доставляются\n\n"
-            "Напишите что-нибудь для проверки!"
-        )
-    
-    # Обработчик всех сообщений
-    @dp.message()
-    async def echo(message: Message):
-        logger.info(f"📨 Сообщение от {message.from_user.id}: {message.text}")
-        await message.answer(f"📡 Эхо: {message.text}")
-    
-    # Запускаем бота
-    logger.info("⏳ Бот готов к работе...")
-    await dp.start_polling(bot)
+    print("🔍 Отладка: Зарегистрированные обработчики")
+    for handler in dp.message.handlers:
+        print(f"  - Фильтр: {handler.filters}")
+
+    # Запускаем polling
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
+        logger.info("👋 Бот остановлен")
 
 if __name__ == "__main__":
     asyncio.run(main())

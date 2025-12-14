@@ -1,0 +1,110 @@
+import json
+import numpy as np
+import traceback
+import time
+from typing import List, Dict
+from sentence_transformers import SentenceTransformer
+
+DATA_FILE = "all_places.json"
+EMBEDDINGS_FILE = "place_embeddings.npy"
+
+MODEL_NAME = "DiTy/bi-encoder-russian-msmarco"
+BATCH_SIZE = 32
+
+def load_places_data(data_file: str) -> List[Dict]:
+
+    print(f"Загрузка {data_file}")
+    
+    try:
+        with open(data_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        print(f"Загружено {len(data)} мест")
+        return data
+    
+    except FileNotFoundError:
+        print(f"Ошибка: файл {data_file} не найден")
+        exit(1)
+    except json.JSONDecodeError:
+        print(f"Ошибка: некорректный JSON в {data_file}")
+        exit(1)
+
+def prepare_embedding_text(place: Dict) -> str:
+    parts = []
+    
+    if place.get("name"):
+        parts.append(place["name"])
+    
+    if place.get("categories"):
+        cats = ", ".join(place["categories"])
+        parts.append(f"Категории: {cats}")
+    
+    if place.get("semantic_tags"):
+        tags = ", ".join(place["semantic_tags"])
+        parts.append(f"Теги: {tags}")
+    
+    if place.get("address"):
+        parts.append(f"Адрес: {place['address']}")
+    
+    if place.get("rating"):
+        parts.append(f"Рейтинг: {place['rating']}")
+    
+    text = ". ".join(parts)
+    return text if text else "N/A"
+
+def create_embeddings(places: List[Dict], model_name: str = MODEL_NAME) -> np.ndarray:
+    print(f"\nЗагрузка {model_name}")
+    
+    start_time = time.time()
+    
+    try:
+        model = SentenceTransformer(model_name)
+    
+    except Exception as e:
+        print(f"Ошибка при загрузке модели: {e}")
+        exit(1)
+    
+    texts = []
+    for place in places:
+        text = prepare_embedding_text(place)
+        texts.append(text)
+    
+    print(f"\n Мест: {len(texts)}")
+    
+    try:
+        embeddings = model.encode(
+            texts,
+            convert_to_numpy=True,
+            show_progress_bar=True,
+            batch_size=BATCH_SIZE,
+        )
+        return embeddings
+    
+    except Exception as e:
+        print(f"Ошибка при создании эмбеддингов: {e}")
+        exit(1)
+
+
+def save_embeddings(embeddings: np.ndarray, output_file: str) -> None:
+    try:
+        np.save(output_file, embeddings)
+    
+    except Exception as e:
+        print(f"Ошибка при сохранении: {e}")
+        exit(1)
+
+def main():
+    places = load_places_data(DATA_FILE)
+    embeddings = create_embeddings(places)
+    
+    save_embeddings(embeddings, EMBEDDINGS_FILE)
+    
+    print(f"\nЭмбеддинги созданы")
+    print(f"Количество: {len(places)}")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        print(f"\nНеожиданная ошибка: {e}")
+        traceback.print_exc()
+        exit(1)

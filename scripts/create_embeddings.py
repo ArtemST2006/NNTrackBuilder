@@ -1,12 +1,11 @@
 import json
+from pathlib import Path
 import numpy as np
 import traceback
 import time
 from typing import List, Dict
 from sentence_transformers import SentenceTransformer
 
-DATA_FILE = "all_places.json"
-EMBEDDINGS_FILE = "place_embeddings.npy"
 
 MODEL_NAME = "DiTy/bi-encoder-russian-msmarco"
 BATCH_SIZE = 32
@@ -29,13 +28,16 @@ def load_places_data(data_file: str) -> List[Dict]:
         exit(1)
 
 def prepare_embedding_text(place: Dict) -> str:
-    if place.get("search_text"):
-        return place["search_text"]
+    text = place.get("search_text")
+    
+    if place.get("semantic_tags"):
+        tags = ", ".join(place["semantic_tags"])
+        text += f". Теги: {tags}"
+        
+    return place["search_text"]
 
 def create_embeddings(places: List[Dict], model_name: str = MODEL_NAME) -> np.ndarray:
     print(f"\nЗагрузка {model_name}")
-    
-    start_time = time.time()
     
     try:
         model = SentenceTransformer(model_name)
@@ -47,7 +49,7 @@ def create_embeddings(places: List[Dict], model_name: str = MODEL_NAME) -> np.nd
     texts = []
     for place in places:
         text = prepare_embedding_text(place)
-        texts.append(text)
+        texts.append(text)  
     
     print(f"\n Мест: {len(texts)}")
     
@@ -74,10 +76,16 @@ def save_embeddings(embeddings: np.ndarray, output_file: str) -> None:
         exit(1)
 
 def main():
-    places = load_places_data(DATA_FILE)
+    
+    script_dir = Path(__file__).parent.parent
+     
+    DATA_FILE = script_dir / 'data' / 'raw' / 'all_places_semantic_tags_updated.json'
+    EMBEDDINGS_FILE = script_dir / 'data' / 'embeddings' / 'place_embeddings.npy'
+
+    places = load_places_data(str(DATA_FILE))
     embeddings = create_embeddings(places)
     
-    save_embeddings(embeddings, EMBEDDINGS_FILE)
+    save_embeddings(embeddings, str(EMBEDDINGS_FILE))
     
     print(f"\nЭмбеддинги созданы")
     print(f"Количество: {len(places)}")

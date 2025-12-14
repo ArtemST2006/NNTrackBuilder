@@ -105,6 +105,14 @@ services:
       - api-gateway
       - user-service
 
+  telegram-bot:
+    build: ./Bot-service
+    container_name: telegram-bot
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+    depends_on: []  # Пока ни от кого не зависит
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   kafka_data:

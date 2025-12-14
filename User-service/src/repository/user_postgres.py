@@ -1,7 +1,8 @@
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from src.models.tables import User
+from typing import Optional
 
 class UserRepository:
     def __init__(self, db: AsyncSession):
@@ -29,3 +30,74 @@ class UserRepository:
         except Exception as e:
             await self.db.rollback()
             raise e
+
+    # МЕТОДЫ ДЛЯ TELEGRAM
+    async def get_by_telegram_id(self, telegram_id: str) -> Optional[User]:
+        """Найти пользователя по Telegram ID"""
+        query = select(User).where(User.telegram_id == telegram_id)
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+    
+    async def update_telegram_info(
+        self, 
+        user_id: int, 
+        telegram_id: str, 
+        telegram_username: Optional[str] = None,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None
+    ) -> User:
+        """Привязать Telegram данные к существующему пользователю"""
+        user = await self.get_by_id(user_id)
+        if not user:
+            raise ValueError(f"User with id {user_id} not found")
+        
+        user.telegram_id = telegram_id
+        if telegram_username:
+            user.telegram_username = telegram_username
+        if first_name:
+            user.first_name = first_name
+        if last_name:
+            user.last_name = last_name
+        
+        try:
+            await self.db.commit()
+            await self.db.refresh(user)
+            return user
+        except IntegrityError as e:
+            await self.db.rollback()
+            raise e
+    
+    async def get_by_id(self, user_id: int) -> Optional[User]:
+        """Найти пользователя по ID"""
+        query = select(User).where(User.id == user_id)
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+    
+    async def create_telegram_user(
+        self,
+        telegram_id: str,
+        username: str,
+        telegram_username: Optional[str] = None,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None
+    ) -> User:
+        """Создать пользователя из Telegram данных (без email и пароля)"""
+        new_user = User(
+            telegram_id=telegram_id,
+            username=username,
+            telegram_username=telegram_username,
+            first_name=first_name,
+            last_name=last_name,
+        )
+        self.db.add(new_user)
+        try:
+            await self.db.commit()
+            await self.db.refresh(new_user)
+            return new_user
+        except IntegrityError as e:
+            await self.db.rollback()
+            raise e
+        except Exception as e:
+            await self.db.rollback()
+            raise e
+            

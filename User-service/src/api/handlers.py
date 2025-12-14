@@ -2,7 +2,13 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
-from src.models.JSONmodels import UserSignInResponse, UserSignIpRequest, UserSignUpRequest
+from src.models.JSONmodels import (
+    UserSignInResponse, 
+    UserSignIpRequest, 
+    UserSignUpRequest,
+    TelegramLinkRequest,      
+    TelegramUserResponse     
+)
 from src.database import get_db
 from src.repository.user_postgres import UserRepository
 from src.midlware.utils import verify_password
@@ -64,7 +70,95 @@ async def login(user_data: UserSignIpRequest, user_repo: UserRepository = Depend
     response = UserSignInResponse(
         user_id=existing_user.id,
         username=existing_user.username,
-        message="user exists"
+        message="user exists",
+        telegram_id=existing_user.telegram_id  
     )
 
     return response
+
+
+# ЭНДПОИНТЫ ДЛЯ TELEGRAM
+@router.post("/link_telegram", status_code=status.HTTP_200_OK)
+async def link_telegram(
+    link_data: TelegramLinkRequest,
+    user_repo: UserRepository = Depends(get_user_repo)
+):
+    """
+    Привязать Telegram ID к существующему пользователю
+    Требует email и пароль для подтверждения
+    """
+    # 1. Найти пользователя по email
+    user = await user_repo.get_by_email(link_data.email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Пользователь с таким email не найден"
+        )
+    
+    # 2. Проверить пароль
+    if not verify_password(link_data.password, user.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверный пароль"
+        )
+    
+    # 3. Проверить, не привязан ли уже этот telegram_id
+    existing_user = await user_repo.get_by_telegram_id(link_data.telegram_id)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Этот Telegram аккаунт уже привязан к другому пользователю"
+        )
+    
+    # 4. Привязать Telegram ID
+    try:
+        updated_user = await user_repo.update_telegram_info(
+            user_id=user.id,
+            telegram_id=link_data.telegram_id,
+            telegram_username=link_data.telegram_username
+        )
+        
+        return {
+            "message": "Telegram аккаунт успешно привязан",
+            "user_id": updated_user.id,
+            "username": updated_user.username,
+            "telegram_id": updated_user.telegram_id
+        }
+    
+    except IntegrityError as e:
+        print(f"Integrity error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ошибка при привязке аккаунта"
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+
+
+@router.get("/by_telegram/{telegram_id}", response_model=TelegramUserResponse)
+async def get_user_by_telegram(
+    telegram_id: str,
+    user_repo: UserRepository = Depends(get_user_repo)
+):
+    """
+    Получить пользователя по Telegram ID
+    """
+    user = await user_repo.get_by_telegram_id(telegram_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Пользователь с таким Telegram ID не найден"
+        )
+    
+    return TelegramUserResponse(
+        user_id=user.id,
+        username=user.username,
+        email=user.email,
+        telegram_id=user.telegram_id,
+        telegram_username=user.telegram_username,
+        first_name=user.first_name,
+        last_name=user.last_name
+    )

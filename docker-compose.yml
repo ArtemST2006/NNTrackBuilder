@@ -109,8 +109,8 @@ services:
     build: ./Bot-service
     container_name: telegram-bot
     environment:
-      - BOT_TOKEN=${BOT_TOKEN}
-    depends_on: []  # Пока ни от кого не зависит
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - API_GATEWAY_URL=http://api-gateway:8000
     restart: unless-stopped
 
 volumes:

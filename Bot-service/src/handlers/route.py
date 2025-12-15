@@ -1,26 +1,64 @@
+import logging
 from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import ReplyKeyboardRemove
 
-from states import RouteStates
-from utils.keyboards import get_interests_keyboard, get_time_keyboard, get_location_keyboard
+from ..states import RouteStates
+from ..services.api_client import api_client
+from ..services.token_storage import token_storage
+from ..services.websocket_client import gateway_ws
+from ..utils.keyboards import (
+    get_interests_keyboard,
+    get_time_keyboard,
+    get_location_keyboard,
+    get_main_menu_keyboard,
+    get_cancel_keyboard
+)
 
 router = Router()
+logger = logging.getLogger(__name__)
 
-# ========== ГЛАВНЫЙ ОБРАБОТЧИК КОМАНДЫ /route ==========
 
 @router.message(Command("route"))
 async def cmd_route(message: types.Message, state: FSMContext):
     """Начинаем создание маршрута - команда /route"""
-    await state.clear()
+    telegram_id = message.from_user.id
     
+    # Проверяем авторизацию
+    token = token_storage.get_token(telegram_id)
+    user_id = token_storage.get_user_id(telegram_id)
+    
+    if not token:
+        await message.answer(
+            "🔐 <b>Требуется авторизация</b>\n\n"
+            "Для создания персонализированных маршрутов нужно войти в аккаунт.\n\n"
+            "Используйте команду /login или кнопку ниже.",
+            reply_markup=get_main_menu_keyboard(is_authenticated=False)
+        )
+        return
+    
+    # Убеждаемся что WebSocket подключен
+    if not gateway_ws.is_connected() or gateway_ws.user_id != user_id:
+        await message.answer("🌐 Подключаюсь к сервису маршрутов...")
+        connected = await gateway_ws.connect(user_id)
+        if not connected:
+            await message.answer(
+                "❌ <b>Не удалось подключиться к сервису маршрутов</b>\n\n"
+                "Попробуйте позже или обратитесь в поддержку.",
+                reply_markup=get_main_menu_keyboard(is_authenticated=True)
+            )
+            return
+    
+    # Начинаем процесс создания маршрута
+    await state.clear()
     await state.set_state(RouteStates.waiting_interests)
     
     await state.update_data(
-        user_id=message.from_user.id,
-        username=message.from_user.username,
-        first_name=message.from_user.first_name,
+        user_id=user_id,
+        telegram_id=telegram_id,
+        username=message.from_user.username or "",
+        first_name=message.from_user.first_name or "",
         interests=[]
     )
     
@@ -31,7 +69,6 @@ async def cmd_route(message: types.Message, state: FSMContext):
         reply_markup=get_interests_keyboard()
     )
 
-# ========== СОСТОЯНИЕ 1: ВЫБОР ИНТЕРЕСОВ ==========
 
 @router.message(RouteStates.waiting_interests, F.text.in_([
     "☕ Кофейни", "🎨 Стрит-арт", "🏛️ Музеи", 
@@ -41,9 +78,11 @@ async def process_interest_selection(message: types.Message, state: FSMContext):
     """Пользователь выбрал интерес"""
     selected_interest = message.text
     
+    # Получаем текущие данные
     data = await state.get_data()
     interests = data.get("interests", [])
     
+    # Добавляем новый интерес
     interests.append(selected_interest)
     await state.update_data(interests=interests)
     
@@ -64,6 +103,7 @@ async def process_interests_done(message: types.Message, state: FSMContext):
         )
         return
     
+    # Переходим к следующему состоянию
     await state.set_state(RouteStates.waiting_time)
     
     interests_text = ", ".join(interests)
@@ -76,12 +116,12 @@ async def process_interests_done(message: types.Message, state: FSMContext):
     )
 
 
-# ========== СОСТОЯНИЕ 2: ВВОД ВРЕМЕНИ ==========
-
 @router.message(RouteStates.waiting_time, F.text.in_(["1 час", "2 часа", "3 часа", "4 часа"]))
 async def process_time_selection(message: types.Message, state: FSMContext):
     """Пользователь выбрал время из кнопок"""
     time_text = message.text
+    
+    # Извлекаем число из текста
     if time_text == "1 час":
         time_hours = 1.0
     elif time_text == "2 часа":
@@ -91,7 +131,7 @@ async def process_time_selection(message: types.Message, state: FSMContext):
     elif time_text == "4 часа":
         time_hours = 4.0
     else:
-        time_hours = 2.0  
+        time_hours = 2.0  # fallback
     
     await process_time_value(message, state, time_hours)
 
@@ -111,8 +151,10 @@ async def process_custom_time_request(message: types.Message, state: FSMContext)
 async def process_time_input(message: types.Message, state: FSMContext):
     """Пользователь ввел время вручную"""
     try:
+        # Пробуем преобразовать в число
         time_hours = float(message.text.replace(',', '.'))
         
+        # Проверяем диапазон
         if 0.5 <= time_hours <= 8:
             await process_time_value(message, state, time_hours)
         else:
@@ -139,8 +181,6 @@ async def process_time_value(message: types.Message, state: FSMContext, time_hou
         reply_markup=get_location_keyboard()
     )
 
-
-# ========== СОСТОЯНИЕ 3: ПОЛУЧЕНИЕ ЛОКАЦИИ ==========
 
 @router.message(RouteStates.waiting_location, F.text == "🏙️ Ввести адрес")
 async def process_address_request(message: types.Message, state: FSMContext):
@@ -186,18 +226,19 @@ async def process_address_input(message: types.Message, state: FSMContext):
     await finish_route_creation(message, state)
 
 
-# ========== ЗАВЕРШЕНИЕ СОЗДАНИЯ МАРШРУТА ==========
-
 async def finish_route_creation(message: types.Message, state: FSMContext):
     """Завершаем сбор данных и создаем маршрут"""
+    # Получаем все данные
     data = await state.get_data()
     
     await state.set_state(RouteStates.processing)
     
+    # Формируем информацию о запросе
     interests = data.get("interests", [])
     time_hours = data.get("time_hours", 2.0)
     location = data.get("location", {})
     
+    # Показываем пользователю что мы получили
     summary_text = f"""
 📋 <b>Собранные данные:</b>
 
@@ -211,65 +252,107 @@ async def finish_route_creation(message: types.Message, state: FSMContext):
     
     await message.answer(summary_text, reply_markup=ReplyKeyboardRemove())
     
-    # Показываем демо-результат (пока нет интеграции с API)
-    await show_demo_route(message, data)
+    # Отправляем запрос в API
+    try:
+        response = await api_client.create_route_request(
+            telegram_id=message.from_user.id,
+            categories=interests,
+            time_hours=time_hours,
+            location_data=location
+        )
+        
+        if response["success"]:
+            task_id = response["task_id"]
+            
+            # Ждем результат через WebSocket
+            await message.answer("⏳ Ожидаю результат от AI Service...")
+            
+            result = await gateway_ws.wait_for_task(task_id, timeout=120)
+            
+            if result.get("status") == "finished":
+                await show_real_route(message, result)
+            else:
+                await handle_route_error(message, result, data)
+                
+        else:
+            await message.answer(
+                f"❌ <b>Ошибка:</b> {response.get('error', 'Неизвестная ошибка')}\n\n"
+                f"<i>Детали:</i> {response.get('details', 'Нет деталей')}",
+                reply_markup=get_main_menu_keyboard(is_authenticated=True)
+            )
+            
+    except Exception as e:
+        logger.error(f"Ошибка при создании маршрута: {e}")
+        await message.answer(
+            "❌ <b>Внутренняя ошибка сервиса</b>\n\n"
+            "Попробуйте позже или обратитесь в поддержку.",
+            reply_markup=get_main_menu_keyboard(is_authenticated=True)
+        )
     
-    # Очищаем состояние
-    await state.clear()
+    finally:
+        await state.clear()
 
 
-async def show_demo_route(message: types.Message, data: dict):
-    """Показываем демо-маршрут (временное решение)"""
-    interests = data.get("interests", ["разные места"])
-    time_hours = data.get("time_hours", 2.0)
-    location_text = data.get("location", {}).get("text", "геолокация")
+async def show_real_route(message: types.Message, result: dict):
+    """Показать реальный маршрут из API"""
+    route_data = result.get("payload", {}).get("route", [])
     
-    # Генерируем демо-маршрут на основе интересов
-    demo_points = []
-    if "☕ Кофейни" in interests:
-        demo_points.append("☕ Кафе 'Хлебная лавка' (40 мин)")
-    if "🎨 Стрит-арт" in interests:
-        demo_points.append("🎨 Граффити 'Нижегородские тигры' (30 мин)")
-    if "🏛️ Музеи" in interests:
-        demo_points.append("🏛️ Нижегородский Кремль (60 мин)")
-    if "🌅 Панорамы" in interests:
-        demo_points.append("🌅 Чкаловская лестница (45 мин)")
-    if "🏛️ Архитектура" in interests:
-        demo_points.append("🏛️ Усадьба Рукавишниковых (50 мин)")
-    if "🌳 Парки" in interests:
-        demo_points.append("🌳 Парк Швейцария (60 мин)")
-    if "🛍️ Магазины" in interests:
-        demo_points.append("🛍️ ТЦ 'Небо' (60 мин)")
+    if not route_data:
+        await message.answer(
+            "❌ Не удалось построить маршрут для указанных параметров\n\n"
+            "Попробуйте изменить интересы или локацию.",
+            reply_markup=get_main_menu_keyboard(is_authenticated=True)
+        )
+        return
     
-    # Если ничего не выбрано, добавляем общие места
-    if not demo_points:
-        demo_points = [
-            "📍 Нижегородский Кремль (60 мин)",
-            "📍 Большая Покровская улица (45 мин)",
-            "📍 Чкаловская лестница (30 мин)"
-        ]
-    
-    # Ограничиваем количество точек по времени
-    max_points = min(int(time_hours * 60 / 30), 5)  # ~30 мин на точку
-    demo_points = demo_points[:max_points]
-    
+    # Форматируем маршрут
     route_text = f"""
-🗺️ <b>ДЕМО-МАРШРУТ</b>
+🗺️ <b>Ваш маршрут готов!</b>
 
-🎯 <b>Интересы:</b> {', '.join(interests) if interests else 'разные места'}
-⏱️ <b>Время:</b> {time_hours} часов
-📍 <b>Старт:</b> {location_text}
+🎯 <b>Всего точек:</b> {len(route_data)}
+⏱️ <b>Общее время:</b> {sum(point.get('time', 30) for point in route_data) // 60} часов
 
 <b>Маршрут включает:</b>
-{chr(10).join(f'• {point}' for point in demo_points)}
-
-✅ <b>Всего точек:</b> {len(demo_points)}
-🚶 <b>Примерная дистанция:</b> {time_hours * 1.2:.1f} км
-
-💡 <i>Это демо-версия. Реальные маршруты будут после запуска AI Service!</i>
-
-🔄 Хочешь попробовать еще? Используй /route
 """
     
-    await message.answer(route_text)
+    for i, point in enumerate(route_data, 1):
+        name = point.get('name', f'Точка {i}')
+        time_min = point.get('time', 30)
+        description = point.get('description', '')
+        
+        route_text += f"\n{i}. <b>{name}</b> - {time_min} мин"
+        if description:
+            route_text += f"\n   <i>{description}</i>"
     
+    route_text += "\n\n🚶 <b>Приятной прогулки!</b>"
+    
+    await message.answer(route_text, reply_markup=get_main_menu_keyboard(is_authenticated=True))
+
+
+async def handle_route_error(message: types.Message, result: dict, original_data: dict):
+    """Обработка ошибок при создании маршрута"""
+    status = result.get("status")
+    
+    if status == "timeout":
+        await message.answer(
+            "⏳ <b>Маршрут все еще обрабатывается</b>\n\n"
+            "AI Service долго обрабатывает ваш запрос.\n"
+            "Мы пришлем уведомление когда он будет готов!",
+            reply_markup=get_main_menu_keyboard(is_authenticated=True)
+        )
+    else:
+        await message.answer(
+            f"❌ <b>Ошибка при создании маршрута:</b> {result.get('error', 'Неизвестная ошибка')}\n\n"
+            "Попробуйте изменить параметры и создать маршрут заново.",
+            reply_markup=get_main_menu_keyboard(is_authenticated=True)
+        )
+
+
+@router.message(F.text == "❌ Отмена")
+async def cancel_route(message: types.Message, state: FSMContext):
+    """Отменить создание маршрута"""
+    await state.clear()
+    await message.answer(
+        "❌ Создание маршрута отменено.",
+        reply_markup=get_main_menu_keyboard(is_authenticated=True)
+    )

@@ -1,24 +1,52 @@
 import asyncio
 import logging
+import signal
+import sys
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import config
+from services.websocket_client import gateway_ws
 
-# ПРЯМЫЕ ИМПОРТЫ БЕЗ ЧЕРЕЗ __init__.py
+# Импорты обработчиков
 from handlers.start import router as start_router
 from handlers.help import router as help_router
 from handlers.location import router as location_router
+from handlers.auth import router as auth_router
 from handlers.route import router as route_router
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=getattr(logging, config.LOG_LEVEL.upper(), logging.INFO),
+    format="%(asctime)s - [%(levelname)s] - %(name)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('bot.log', encoding='utf-8')
+    ]
+)
+
 logger = logging.getLogger(__name__)
+
+
+async def shutdown(dispatcher: Dispatcher, bot: Bot):
+    """Корректное завершение работы бота"""
+    logger.info("🛑 Начинаю завершение работы...")
+    
+    # Закрываем WebSocket соединение
+    await gateway_ws.disconnect()
+    
+    # Закрываем диспетчер
+    await dispatcher.storage.close()
+    
+    # Закрываем сессию бота
+    await bot.session.close()
+    
+    logger.info("✅ Завершение работы выполнено успешно")
+
 
 async def main():
     """Основная функция запуска бота"""
-    
     try:
         # Проверяем конфигурацию
         config.validate()
@@ -28,43 +56,85 @@ async def main():
         logger.info("💡 Создайте файл Bot-service/.env с BOT_TOKEN=ваш_токен")
         return
     
-    # Создаем бота и хранилище состояний
+    # Создаем бота
     bot = Bot(token=config.BOT_TOKEN, parse_mode=ParseMode.HTML)
+    
+    # Создаем хранилище состояний и диспетчер
     storage = MemoryStorage()
     dp = Dispatcher(storage=storage)
     
-    # Подключаем роутеры
+    # Регистрируем обработчики сигналов для корректного завершения
+    loop = asyncio.get_event_loop()
+    
+    def signal_handler():
+        logger.info("📞 Получен сигнал завершения")
+        loop.create_task(shutdown(dp, bot))
+    
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, signal_handler)
+    
+    # Подключаем роутеры (важен порядок!)
     dp.include_router(start_router)
     dp.include_router(help_router)
     dp.include_router(location_router)
+    dp.include_router(auth_router)
     dp.include_router(route_router)
     
-    # Обработчик неизвестных команд
-    # @dp.message()
-    # async def handle_unknown(message):
-    #     await message.answer(
-    #         "🤔 Не понял команду.\n\n"
-    #         "Используйте:\n"
-    #         "/start - Начало работы\n"
-    #         "/route - Создать маршрут\n"
-    #         "/help - Помощь"
-    #     )
+    # Эхо-обработчик для отладки (убрать в production)
+    @dp.message()
+    async def debug_handler(message):
+        """Обработчик для отладки необработанных сообщений"""
+        logger.debug(f"📨 Необработанное сообщение от {message.from_user.id}: {message.text}")
     
     # Получаем информацию о боте
-    bot_info = await bot.get_me()
-    logger.info(f"✅ Бот запущен: @{bot_info.username} ({bot_info.full_name})")
+    try:
+        bot_info = await bot.get_me()
+        logger.info(f"🤖 Бот запущен: @{bot_info.username} ({bot_info.full_name})")
+        logger.info(f"🌐 API Gateway: {config.API_GATEWAY_URL}")
+        logger.info(f"🎮 Демо-режим: {'ВКЛ' if config.ENABLE_DEMO_MODE else 'ВЫКЛ'}")
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка подключения к Telegram API: {e}")
+        logger.info("💡 Проверьте BOT_TOKEN в .env файле")
+        return
+    
+    # Проверяем доступность API Gateway
+    from services.api_client import api_client
+    try:
+        health = await api_client.health_check()
+        if health:
+            logger.info("✅ API Gateway доступен")
+        else:
+            logger.warning("⚠️ API Gateway недоступен, некоторые функции могут не работать")
+    except:
+        logger.warning("⚠️ Не удалось проверить доступность API Gateway")
+    
+    # Очищаем истекшие токены при старте
+    from services.token_storage import token_storage
+    cleaned = token_storage.cleanup_expired()
+    if cleaned > 0:
+        logger.info(f"🧹 Очищено {cleaned} истекших токенов")
+    
+    # Запускаем polling
     logger.info("⏳ Ожидаю сообщения...")
     
-    print("🔍 Отладка: Зарегистрированные обработчики")
-    for handler in dp.message.handlers:
-        print(f"  - Фильтр: {handler.filters}")
-
-    # Запускаем polling
     try:
         await dp.start_polling(bot)
+    except Exception as e:
+        logger.error(f"❌ Критическая ошибка: {e}")
     finally:
-        await bot.session.close()
-        logger.info("👋 Бот остановлен")
+        await shutdown(dp, bot)
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # Настройка asyncio для Windows
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    
+    # Запуск бота
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("👋 Бот остановлен пользователем")
+    except Exception as e:
+        logger.error(f"❌ Необработанная ошибка: {e}")

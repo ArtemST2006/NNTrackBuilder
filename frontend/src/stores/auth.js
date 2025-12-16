@@ -11,10 +11,56 @@ export const useAuthStore = defineStore('auth', {
     socketStatus: 'отключено',
     socketMessages: []
   }),
+
   getters: {
     isAuthenticated: (state) => !!state.token
   },
+
   actions: {
+    // ВХОД
+    async signIn(email, password) {
+      this.loading = true
+      this.error = null
+      try {
+        const resp = await api.post('/api/sign-in', { email, password })
+        const data = resp.data
+
+        this.token = data.token
+        this.user = { email: data.email, user_id: data.user_id }
+
+        localStorage.setItem('token', this.token)
+        localStorage.setItem('user', JSON.stringify(this.user))
+
+        // Подключаем сокет после успешного входа
+        this.connectWebSocket(data.user_id)
+      } catch (err) {
+        this.error = err.response?.data?.detail || 'Ошибка авторизации'
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // РЕГИСТРАЦИЯ
+    async signUp(email, username, password, confirmPassword) {
+      this.loading = true
+      this.error = null
+      try {
+        if (password !== confirmPassword) {
+          throw new Error('Пароли не совпадают')
+        }
+        await api.post('/api/sign-up', {
+          email,
+          username,
+          password
+        })
+      } catch (err) {
+        this.error = err.response?.data?.detail || err.message || 'Ошибка регистрации'
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
 
     connectWebSocket(userId) {
       if (this.socket?.readyState === 1) return
@@ -43,7 +89,15 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
+    // ВЫХОД
     logout() {
+      this.user = null
+      this.token = null
+      this.error = null
+
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+
       if (this.socket) {
         this.socket.close()
         this.socket = null

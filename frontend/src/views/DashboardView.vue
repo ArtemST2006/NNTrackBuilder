@@ -244,11 +244,11 @@ const fetchStatistics = async () => {
   statsLoading.value = true
   try {
     const resp = await api.get('/api/statistic', {
-      params: { user_id: auth.user.user_id }
+      params: { user_id: auth.user.user_id },
+      headers: { Authorization: `Bearer ${auth.token}` }
     })
-    // Если бэкенд возвращает StatisticResponse { statistic: [...] }
+
     statistics.value = resp.data.statistic || []
-    // Если бэкенд возвращает просто список [...], то: statistics.value = resp.data
   } catch (e) {
     console.error('Ошибка получения статистики', e)
   } finally {

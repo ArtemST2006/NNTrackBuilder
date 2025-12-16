@@ -1,0 +1,200 @@
+openapi: 3.1.0
+info:
+  title: FastAPI
+  version: 0.1.0
+paths:
+  /api/sign-up:
+    post:
+      summary: Sign Up
+      operationId: sign_up_api_sign_up_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserSignUpRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/sign-in:
+    post:
+      summary: Sign In
+      operationId: sign_in_api_sign_in_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserSignIpRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSignInResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/predict:
+    post:
+      summary: Predict
+      operationId: predict_api_predict_post
+      security:
+        - OAuth2PasswordBearer: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIRequest'
+        required: true
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    AIRequest:
+      title: AIRequest
+      required:
+        - category
+        - time
+        - cords
+        - place
+      type: object
+      properties:
+        category:
+          title: Category
+          type: array
+          items: {}
+        time:
+          title: Time
+          type: number
+        cords:
+          title: Cords
+          type: string
+        place:
+          title: Place
+          type: string
+    AcceptResponse:
+      title: AcceptResponse
+      required:
+        - user_id
+        - task_id
+      type: object
+      properties:
+        user_id:
+          title: User Id
+          type: integer
+        task_id:
+          title: Task Id
+          type: string
+    HTTPValidationError:
+      title: HTTPValidationError
+      type: object
+      properties:
+        detail:
+          title: Detail
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+    UserSignInResponse:
+      title: UserSignInResponse
+      required:
+        - token
+        - user_id
+        - username
+        - message
+      type: object
+      properties:
+        token:
+          title: Token
+          type: string
+        user_id:
+          title: User Id
+          type: integer
+        username:
+          title: Username
+          type: string
+        message:
+          title: Message
+          type: string
+    UserSignIpRequest:
+      title: UserSignIpRequest
+      required:
+        - email
+        - password
+      type: object
+      properties:
+        email:
+          title: Email
+          type: string
+        password:
+          title: Password
+          type: string
+    UserSignUpRequest:
+      title: UserSignUpRequest
+      required:
+        - username
+        - email
+        - password
+      type: object
+      properties:
+        username:
+          title: Username
+          type: string
+        email:
+          title: Email
+          type: string
+        password:
+          title: Password
+          type: string
+    ValidationError:
+      title: ValidationError
+      required:
+        - loc
+        - msg
+        - type
+      type: object
+      properties:
+        loc:
+          title: Location
+          type: array
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+        msg:
+          title: Message
+          type: string
+        type:
+          title: Error Type
+          type: string
+  securitySchemes:
+    OAuth2PasswordBearer:
+      type: oauth2
+      flows:
+        password:
+          tokenUrl: /api/sign-in
+          scopes: {}

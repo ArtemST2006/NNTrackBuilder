@@ -1,2 +1,2 @@
-CREATE DATABASE profile;
-GRANT ALL PRIVILEGES ON DATABASE profile TO user_user;
+CREATE DATABASE statistic;
+GRANT ALL PRIVILEGES ON DATABASE statistic TO user_user;

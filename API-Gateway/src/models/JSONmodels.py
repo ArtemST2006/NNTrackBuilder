@@ -21,7 +21,7 @@ class UserSignInResponse(BaseModel):
 
 class AIRequest(BaseModel):
     category: list
-    time: float
+    time: float # вреям которое пользователь готов потратить на прогулку
     cords: str
     place: str
 

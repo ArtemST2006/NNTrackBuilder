@@ -67,13 +67,12 @@ class KafkaResponseConsumer:
         task_id = data.get("task_id")
 
         if user_id:
-            logger.info(f"CONSUMER: Found active user {user_id}. Sending to WebSocket...")
+            logger.info(f"CONSUMER: {user_id}. Sending to WebSocket...")
             payload = {
                 "task_id": task_id,
                 "status": "finished",
                 "payload": data
             }
-            # Обернем отправку, чтобы ошибка вебсокета не ломала цикл
             try:
                 await manager.send_message(user_id, payload)
             except Exception as e:

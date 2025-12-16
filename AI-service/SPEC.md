@@ -14,12 +14,37 @@
     "depends": "profile"
     "user_id": int,
     "task_id": string,
-    "profile": {
-        
-    }
+    "profile": string # пустой будет
     "input_data": {
-    
+        "category": list
+        "time": float # вреям которое пользователь готов потратить на прогулку
+        "cords": str # либо скидыват координты
+        "place": str № либо скидывает адрес
     }
+}
+
+
+Пример со всеми категориями:
+{
+	"depends": "profile",
+	"task_id": "9d58964e-f822-4088-a340-ee41044be734",
+	"user_id": 2,
+	"profile": "",
+	"input_data": {
+		"category": [
+			"parks",
+			"architecture",
+			"museums",
+			"views",
+			"shops",
+			"all",
+			"street_art",
+			"cafes"
+		],
+		"time": 3.0,
+		"cords": "",
+		"place": ""
+	}
 }
 ```
 

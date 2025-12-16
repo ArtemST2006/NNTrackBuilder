@@ -1,10 +1,11 @@
 import asyncio
 import logging
+import uvicorn
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-import uvicorn
+
 
 from src.api import router as main_router
 from src.config import KAFKA_TOPIC_AI_REQUEST
@@ -18,6 +19,7 @@ async def lifespan(app: FastAPI):
     print(">>> System starting...")
     await kafka_producer.start()
     consumer_task = asyncio.create_task(kafka_consumer.start())
+    print(">>> Kafka started carefully")
 
     yield
 
@@ -37,6 +39,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(main_router)
+logging.basicConfig(
+    level=logging.INFO,
+)
 logger = logging.getLogger(__name__)
 
 app.add_middleware(

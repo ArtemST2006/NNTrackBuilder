@@ -37,7 +37,7 @@ export const useAuthStore = defineStore('auth', {
         if (password !== confirmPassword) {
           throw new Error('Пароли не совпадают')
         }
-        await api.post('/api/sign-up', {
+        await api.post('/api/sign-up',  {
           email,
           username,   // <-- важное поле
           password

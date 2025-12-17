@@ -12,7 +12,7 @@ class AIResponse(BaseModel):
     task_id: str
     output: List[PlaceItem]
     description: str
-    time: datetime.datetime
+    time: float
     long: float
     advice: str
 

@@ -10,6 +10,6 @@ class Statistic(Base):
     task_id = Column(String, nullable=False)
     description = Column(String, nullable=True)
     output = Column(JSON, nullable=False)
-    time = Column(DateTime, default=func.now())
+    time = Column(Float, nullable=False)
     long = Column(Float, nullable=False)
     advice = Column(String, nullable=False)

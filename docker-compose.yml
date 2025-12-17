@@ -108,8 +108,12 @@ services:
     ports:
       - "8002:8002"
     depends_on:
-      - postgres
-      - user-service
+      postgres:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      kafka:
+        condition: service_healthy
 
   frontend:
     build:

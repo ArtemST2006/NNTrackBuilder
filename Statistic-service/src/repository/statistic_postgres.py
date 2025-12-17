@@ -26,6 +26,7 @@ class StatisticRepository:
             description=resp.description,
             output=[item.model_dump() for item in resp.output],
             long=resp.long,
+            time=resp.time,
             advice=resp.advice,
         )
         self.db.add(new_statistic_entry)

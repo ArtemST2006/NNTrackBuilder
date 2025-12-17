@@ -34,7 +34,7 @@ def prepare_embedding_text(place: Dict) -> str:
         tags = ", ".join(place["semantic_tags"])
         text += f". Теги: {tags}"
         
-    return place["search_text"]
+    return text
 
 def create_embeddings(places: List[Dict], model_name: str = MODEL_NAME) -> np.ndarray:
     print(f"\nЗагрузка {model_name}")
@@ -79,7 +79,7 @@ def main():
     
     script_dir = Path(__file__).parent.parent
      
-    DATA_FILE = script_dir / 'data' / 'raw' / 'all_places_semantic_tags_updated.json'
+    DATA_FILE = script_dir / 'data' / 'processed' / 'places_with_updated_search_text.json'
     EMBEDDINGS_FILE = script_dir / 'data' / 'embeddings' / 'place_embeddings.npy'
 
     places = load_places_data(str(DATA_FILE))

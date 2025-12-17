@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
+
 import chromadb
 from sentence_transformers import SentenceTransformer
 
@@ -41,10 +42,10 @@ class HybridSearcher:
             return []
 
     def build_where_filter(
-            self,
-            search_categories: Optional[List[str]] = None,
-            price_ranges: Optional[List[str]] = None,
-            seasons: Optional[List[str]] = None,
+        self,
+        search_categories: Optional[List[str]] = None,
+        price_ranges: Optional[List[str]] = None,
+        seasons: Optional[List[str]] = None,
     ) -> Optional[Dict]:
 
         filters = []
@@ -69,14 +70,14 @@ class HybridSearcher:
         return {"$and": filters}
 
     def search(
-            self,
-            query: str,
-            n_results: int = 5,
-            search_categories: Optional[List[str]] = None,
-            boost_tags: Optional[List[str]] = None,
-            price_ranges: Optional[List[str]] = None,
-            seasons: Optional[List[str]] = None,
-            city: Optional[str] = None,
+        self,
+        query: str,
+        n_results: int = 5,
+        search_categories: Optional[List[str]] = None,
+        boost_tags: Optional[List[str]] = None,
+        price_ranges: Optional[List[str]] = None,
+        seasons: Optional[List[str]] = None,
+        city: Optional[str] = None,
     ) -> List[Dict]:
 
         print(f"Поиск: '{query}'")
@@ -101,29 +102,24 @@ class HybridSearcher:
                 query_embeddings=[query_embedding],
                 where=where_filter,
                 n_results=n_results * 3,
-                include=["documents", "metadatas", "distances"]
+                include=["documents", "metadatas", "distances"],
             )
         except Exception as e:
             print(f"Ошибка при поиске: {e}")
             return []
 
-        if not raw_results or not raw_results.get('ids'):
+        if not raw_results or not raw_results.get("ids"):
             print("Результатов не найдено\n")
             return []
 
-        ids = raw_results['ids'][0]
-        docs = raw_results['documents'][0]
-        metas = raw_results['metadatas'][0]
-        dists = raw_results['distances'][0]
+        ids = raw_results["ids"][0]
+        docs = raw_results["documents"][0]
+        metas = raw_results["metadatas"][0]
+        dists = raw_results["distances"][0]
 
         scored_results = []
 
-        for doc_id, doc_text, metadata, distance in zip(
-                ids,
-                docs,
-                metas,
-                dists
-        ):
+        for doc_id, doc_text, metadata, distance in zip(ids, docs, metas, dists):
             base_score = 1.0 / (1.0 + distance)
             final_score = base_score
 
@@ -138,19 +134,21 @@ class HybridSearcher:
             if city and metadata.get("city", "").lower() != city.lower():
                 continue
 
-            scored_results.append({
-                "id": doc_id,
-                "name": metadata.get("name", "N/A"),
-                "text": doc_text[:80],
-                "full_text": doc_text,
-                "metadata": metadata,
-                "distance": distance,
-                "base_score": base_score,
-                "final_score": final_score,
-                "tags": self.parse_tags_from_metadata(
-                    metadata.get("semantic_tags", "[]")
-                ),
-            })
+            scored_results.append(
+                {
+                    "id": doc_id,
+                    "name": metadata.get("name", "N/A"),
+                    "text": doc_text[:80],
+                    "full_text": doc_text,
+                    "metadata": metadata,
+                    "distance": distance,
+                    "base_score": base_score,
+                    "final_score": final_score,
+                    "tags": self.parse_tags_from_metadata(
+                        metadata.get("semantic_tags", "[]")
+                    ),
+                }
+            )
 
         scored_results.sort(key=lambda x: x["final_score"], reverse=True)
 
@@ -168,17 +166,19 @@ class HybridSearcher:
             print(f"   {result['full_text'][:100]}...")
 
             if show_details:
-                print(f"   Score: {result['final_score']:.3f} | Distance: {result['distance']:.3f}")
+                print(
+                    f"   Score: {result['final_score']:.3f} | Distance: {result['distance']:.3f}"
+                )
 
-                meta = result['metadata']
+                meta = result["metadata"]
 
                 if meta.get("search_category"):
                     print(f"   Category: {meta['search_category']}")
 
-                if result['tags']:
-                    tags_text = ", ".join([
-                        self.tag_map.get(tag, tag) for tag in result['tags']
-                    ])
+                if result["tags"]:
+                    tags_text = ", ".join(
+                        [self.tag_map.get(tag, tag) for tag in result["tags"]]
+                    )
                     print(f"   Tags: {tags_text}")
 
                 if meta.get("price_range"):
@@ -224,10 +224,16 @@ def main():
             break
 
         categories_input = input("   Категории [enter пропустить]: ").strip()
-        categories = [c.strip() for c in categories_input.split(",")] if categories_input else None
+        categories = (
+            [c.strip() for c in categories_input.split(",")]
+            if categories_input
+            else None
+        )
 
         boost_input = input("   Буст теги [enter пропустить]: ").strip()
-        boost_tags = [t.strip() for t in boost_input.split(",")] if boost_input else None
+        boost_tags = (
+            [t.strip() for t in boost_input.split(",")] if boost_input else None
+        )
 
         price_input = input("   Цена [enter пропустить]: ").strip()
         prices = [p.strip() for p in price_input.split(",")] if price_input else None

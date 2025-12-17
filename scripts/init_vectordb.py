@@ -1,9 +1,10 @@
 import json
-from pathlib import Path
-import numpy as np
 import traceback
-from typing import List, Dict
+from pathlib import Path
+from typing import Dict, List
+
 import chromadb
+import numpy as np
 from sentence_transformers import SentenceTransformer
 
 MODEL_NAME = "DiTy/bi-encoder-russian-msmarco"
@@ -43,11 +44,7 @@ def load_embeddings(embeddings_file: str) -> np.ndarray:
         exit(1)
 
 
-def create_vectordb(
-        places: List[Dict],
-        embeddings: np.ndarray,
-        db_path: str
-) -> None:
+def create_vectordb(places: List[Dict], embeddings: np.ndarray, db_path: str) -> None:
     db_dir = Path(db_path)
     db_dir.mkdir(parents=True, exist_ok=True)
 
@@ -60,8 +57,7 @@ def create_vectordb(
             pass
 
         collection = client.create_collection(
-            name="places",
-            metadata={"hnsw:space": "cosine"}
+            name="places", metadata={"hnsw:space": "cosine"}
         )
 
         ids = []
@@ -80,14 +76,11 @@ def create_vectordb(
                 "subcategory": place.get("subcategory", ""),
                 "lat": str(place.get("lat", "")),
                 "lon": str(place.get("lon", "")),
-
                 "semantic_tags": json.dumps(place.get("semantic_tags", [])),
-
                 "price_range": place.get("metadata", {}).get("price_range", ""),
                 "rating_category": place.get("metadata", {}).get("rating_category", ""),
                 "season": place.get("metadata", {}).get("season", ""),
                 "accessibility": place.get("metadata", {}).get("accessibility", ""),
-
                 "rating": str(place.get("rating", "")),
                 "city": place.get("city", ""),
             }
@@ -103,10 +96,7 @@ def create_vectordb(
                 print(f"  Подготовлено {idx + 1}/{len(places)} мест")
 
         collection.upsert(
-            ids=ids,
-            metadatas=metadatas,
-            documents=documents,
-            embeddings=vectors
+            ids=ids, metadatas=metadatas, documents=documents, embeddings=vectors
         )
 
         print(f"Данные загружены\n")
@@ -119,40 +109,42 @@ def create_vectordb(
             results = collection.query(
                 query_embeddings=[query_embedding],
                 where={"search_category": "парк"},
-                n_results=3
+                n_results=3,
             )
 
-            if results and results.get('ids'):
-                ids = results['ids'][0]
-                docs = results['documents'][0]
-                dists = results['distances'][0]
-                metas = results['metadatas'][0]
+            if results and results.get("ids"):
+                ids = results["ids"][0]
+                docs = results["documents"][0]
+                dists = results["distances"][0]
+                metas = results["metadatas"][0]
 
-                for i, (place_id, doc, dist, meta) in enumerate(zip(
-                        ids,
-                        docs,
-                        dists,
-                        metas
-                )):
+                for i, (place_id, doc, dist, meta) in enumerate(
+                    zip(ids, docs, dists, metas)
+                ):
                     dist_val = dist[0] if isinstance(dist, list) else dist
-                    dist_text = f"{dist_val:.3f}" if isinstance(dist_val, (float, int)) else str(dist_val)
+                    dist_text = (
+                        f"{dist_val:.3f}"
+                        if isinstance(dist_val, (float, int))
+                        else str(dist_val)
+                    )
                     print(f"  {i + 1}. {doc[:60]}... (расстояние: {dist_text})")
                     print(f"     Категория: {meta.get('search_category', 'N/A')}\n")
             else:
                 print("  Результатов не найдено с фильтром по категории 'парк'")
 
                 results = collection.query(
-                    query_embeddings=[query_embedding],
-                    n_results=3
+                    query_embeddings=[query_embedding], n_results=3
                 )
 
-                for i, (place_id, doc, dist) in enumerate(zip(
-                        results['ids'],
-                        results['documents'],
-                        results['distances']
-                )):
+                for i, (place_id, doc, dist) in enumerate(
+                    zip(results["ids"], results["documents"], results["distances"])
+                ):
                     dist_val = dist[0] if isinstance(dist, list) else dist
-                    dist_text = f"{dist_val:.3f}" if isinstance(dist_val, (float, int)) else str(dist_val)
+                    dist_text = (
+                        f"{dist_val:.3f}"
+                        if isinstance(dist_val, (float, int))
+                        else str(dist_val)
+                    )
                     print(f"  {i + 1}. {doc[:60]}... (расстояние: {dist_text})")
 
         except Exception as e:
@@ -166,9 +158,9 @@ def create_vectordb(
 def main():
     script_dir = Path(__file__).parent.parent
 
-    DATA_FILE = script_dir / 'data' / 'raw' / 'all_places_semantic_tags_updated.json'
-    EMBEDDINGS_FILE = script_dir / 'data' / 'embeddings' / 'place_embeddings.npy'
-    DB_PATH = script_dir / 'chroma_db'
+    DATA_FILE = script_dir / "data" / "raw" / "all_places_semantic_tags_updated.json"
+    EMBEDDINGS_FILE = script_dir / "data" / "embeddings" / "place_embeddings.npy"
+    DB_PATH = script_dir / "chroma_db"
 
     if not DATA_FILE.exists():
         print(f"Ошибка: файл не найден: {DATA_FILE}")
@@ -182,7 +174,9 @@ def main():
     embeddings = load_embeddings(str(EMBEDDINGS_FILE))
 
     if len(places) != len(embeddings):
-        print(f"Ошибка: количество мест ({len(places)}) != количество эмбеддингов ({len(embeddings)})")
+        print(
+            f"Ошибка: количество мест ({len(places)}) != количество эмбеддингов ({len(embeddings)})"
+        )
         exit(1)
 
     print(f"Данные совпадают: {len(places)} мест = {len(embeddings)} эмбеддингов\n")

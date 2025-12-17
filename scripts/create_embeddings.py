@@ -1,9 +1,10 @@
 import json
-from pathlib import Path
-import numpy as np
-import traceback
 import time
-from typing import List, Dict
+import traceback
+from pathlib import Path
+from typing import Dict, List
+
+import numpy as np
 from sentence_transformers import SentenceTransformer
 
 MODEL_NAME = "DiTy/bi-encoder-russian-msmarco"
@@ -80,8 +81,10 @@ def save_embeddings(embeddings: np.ndarray, output_file: str) -> None:
 def main():
     script_dir = Path(__file__).parent.parent
 
-    DATA_FILE = script_dir / 'data' / 'processed' / 'places_with_updated_search_text.json'
-    EMBEDDINGS_FILE = script_dir / 'data' / 'embeddings' / 'place_embeddings.npy'
+    DATA_FILE = (
+        script_dir / "data" / "processed" / "places_with_updated_search_text.json"
+    )
+    EMBEDDINGS_FILE = script_dir / "data" / "embeddings" / "place_embeddings.npy"
 
     places = load_places_data(str(DATA_FILE))
     embeddings = create_embeddings(places)

@@ -3,7 +3,6 @@ from pathlib import Path
 import traceback
 from typing import List, Dict, Any
 
-
 SEMANTIC_TAGS_MAP = {
     "аквапарк": ["водные развлечения", "для семей с детьми", "летний досуг", "активный отдых", "платная услуга"],
     "арт_кластер": ["искусство", "творчество", "культура", "выставки", "фотосессии"],
@@ -78,7 +77,7 @@ def overwrite_semantic_tags(input_file: str, output_file: str) -> Dict[str, Any]
 
     for idx, place in enumerate(places):
         search_category = place.get('search_category', '')
-        
+
         if search_category in SEMANTIC_TAGS_MAP:
             tags = SEMANTIC_TAGS_MAP[search_category]
             place['semantic_tags'] = tags
@@ -90,20 +89,20 @@ def overwrite_semantic_tags(input_file: str, output_file: str) -> Dict[str, Any]
 
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(places, f, ensure_ascii=False, indent=2)
-    
+
     print(f"Сохранено в {output_file}\n")
-    
+
     # return stats
 
-def main():
 
+def main():
     script_dir = Path(__file__).parent.parent
-    
+
     input_file = script_dir / 'data' / 'processed' / 'all_places.json'
     output_file = script_dir / 'data' / 'raw' / 'all_places_semantic_tags_updated.json'
-    
+
     overwrite_semantic_tags(str(input_file), str(output_file))
-    
+
     print(f"   Файл: {output_file}\n")
 
 

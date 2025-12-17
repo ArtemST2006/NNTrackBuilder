@@ -4,12 +4,11 @@ from typing import List, Dict, Optional
 import chromadb
 from sentence_transformers import SentenceTransformer
 
-
 MODEL_NAME = "DiTy/bi-encoder-russian-msmarco"
 
 
 class HybridSearcher:
-    
+
     def __init__(self, db_path: str = "./chroma_db"):
         self.client = chromadb.PersistentClient(path=db_path)
         try:
@@ -19,7 +18,7 @@ class HybridSearcher:
             exit(1)
 
         self.model = SentenceTransformer(MODEL_NAME)
-        
+
         self.tag_map = {
             "scenic": "живописное",
             "adventure": "приключение",
@@ -32,7 +31,7 @@ class HybridSearcher:
             "family": "для семей",
             "kids": "для детей",
         }
-    
+
     def parse_tags_from_metadata(self, semantic_tags_str: str) -> List[str]:
         try:
             if isinstance(semantic_tags_str, list):
@@ -40,14 +39,14 @@ class HybridSearcher:
             return json.loads(semantic_tags_str)
         except:
             return []
-    
+
     def build_where_filter(
-        self,
-        search_categories: Optional[List[str]] = None,
-        price_ranges: Optional[List[str]] = None,
-        seasons: Optional[List[str]] = None,
+            self,
+            search_categories: Optional[List[str]] = None,
+            price_ranges: Optional[List[str]] = None,
+            seasons: Optional[List[str]] = None,
     ) -> Optional[Dict]:
-        
+
         filters = []
 
         def add_in_filter(field: str, values: Optional[List[str]]) -> None:
@@ -68,18 +67,18 @@ class HybridSearcher:
             return filters[0]
 
         return {"$and": filters}
-    
+
     def search(
-        self,
-        query: str,
-        n_results: int = 5,
-        search_categories: Optional[List[str]] = None,
-        boost_tags: Optional[List[str]] = None,
-        price_ranges: Optional[List[str]] = None,
-        seasons: Optional[List[str]] = None,
-        city: Optional[str] = None,
+            self,
+            query: str,
+            n_results: int = 5,
+            search_categories: Optional[List[str]] = None,
+            boost_tags: Optional[List[str]] = None,
+            price_ranges: Optional[List[str]] = None,
+            seasons: Optional[List[str]] = None,
+            city: Optional[str] = None,
     ) -> List[Dict]:
-        
+
         print(f"Поиск: '{query}'")
         if search_categories:
             print(f"   Категории: {', '.join(search_categories)}")
@@ -88,15 +87,15 @@ class HybridSearcher:
         if price_ranges:
             print(f"   Цена: {', '.join(price_ranges)}")
         print()
-        
+
         query_embedding = self.model.encode(query, convert_to_numpy=True).tolist()
-        
+
         where_filter = self.build_where_filter(
             search_categories=search_categories,
             price_ranges=price_ranges,
             seasons=seasons,
         )
-        
+
         try:
             raw_results = self.collection.query(
                 query_embeddings=[query_embedding],
@@ -107,38 +106,38 @@ class HybridSearcher:
         except Exception as e:
             print(f"Ошибка при поиске: {e}")
             return []
-        
+
         if not raw_results or not raw_results.get('ids'):
             print("Результатов не найдено\n")
             return []
-        
+
         ids = raw_results['ids'][0]
         docs = raw_results['documents'][0]
         metas = raw_results['metadatas'][0]
         dists = raw_results['distances'][0]
-        
+
         scored_results = []
-        
+
         for doc_id, doc_text, metadata, distance in zip(
-            ids,
-            docs,
-            metas,
-            dists
+                ids,
+                docs,
+                metas,
+                dists
         ):
             base_score = 1.0 / (1.0 + distance)
             final_score = base_score
-            
+
             if boost_tags:
                 tags_str = metadata.get("semantic_tags", "[]")
                 place_tags = self.parse_tags_from_metadata(tags_str)
-                
+
                 for tag in boost_tags:
                     if tag in place_tags:
                         final_score *= 1.5
-            
+
             if city and metadata.get("city", "").lower() != city.lower():
                 continue
-            
+
             scored_results.append({
                 "id": doc_id,
                 "name": metadata.get("name", "N/A"),
@@ -152,57 +151,56 @@ class HybridSearcher:
                     metadata.get("semantic_tags", "[]")
                 ),
             })
-        
+
         scored_results.sort(key=lambda x: x["final_score"], reverse=True)
-        
+
         return scored_results[:n_results]
-    
-    def print_results(self, results: List[Dict], show_details: bool = True):        
+
+    def print_results(self, results: List[Dict], show_details: bool = True):
         if not results:
             print("Результатов не найдено\n")
             return
-        
+
         print(f"Найдено {len(results)} результатов:\n")
-        
+
         for i, result in enumerate(results, 1):
             print(f"{i}. !!! {result['name']}")
             print(f"   {result['full_text'][:100]}...")
-            
+
             if show_details:
                 print(f"   Score: {result['final_score']:.3f} | Distance: {result['distance']:.3f}")
-                
+
                 meta = result['metadata']
-                
+
                 if meta.get("search_category"):
                     print(f"   Category: {meta['search_category']}")
-                
+
                 if result['tags']:
                     tags_text = ", ".join([
                         self.tag_map.get(tag, tag) for tag in result['tags']
                     ])
                     print(f"   Tags: {tags_text}")
-                
+
                 if meta.get("price_range"):
                     print(f"   Price: {meta['price_range']}")
-                
+
                 if meta.get("rating"):
                     print(f"   Rating: {meta['rating']}")
-            
+
             print()
 
 
 def main():
     script_dir = Path(__file__).parent.parent
     db_path = str(script_dir / "chroma_db")
-    
+
     searcher = HybridSearcher(db_path=db_path)
-    
-    
+
     examples = [
         {
             "query": "красивый парк для прогулки и фото",
             "search_categories": ["парк"],
-            "boost_tags": ["природа", "фотосессии", "прогулки"],  
+            "boost_tags": ["природа", "фотосессии", "прогулки"],
         },
         {
             "query": "исторический памятник с архитектурой",
@@ -219,21 +217,21 @@ def main():
     for i, example in enumerate(examples, 1):
         results = searcher.search(**example)
         searcher.print_results(results)
-    
+
     while True:
         query = input("Введи запрос. ").strip()
         if not query or query.lower() == "exit":
             break
-        
+
         categories_input = input("   Категории [enter пропустить]: ").strip()
         categories = [c.strip() for c in categories_input.split(",")] if categories_input else None
-        
+
         boost_input = input("   Буст теги [enter пропустить]: ").strip()
         boost_tags = [t.strip() for t in boost_input.split(",")] if boost_input else None
-        
+
         price_input = input("   Цена [enter пропустить]: ").strip()
         prices = [p.strip() for p in price_input.split(",")] if price_input else None
-        
+
         results = searcher.search(
             query=query,
             n_results=5,
@@ -241,7 +239,7 @@ def main():
             boost_tags=boost_tags,
             price_ranges=prices,
         )
-        
+
         searcher.print_results(results)
         print()
 

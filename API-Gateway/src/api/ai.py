@@ -17,7 +17,6 @@ async def predict(data: AIRequest, user_id: int = Depends(get_current_user_id) )
         "depends": "profile",
         "task_id": task_id,
         "user_id": user_id,
-        "profile": "",
         "input_data": data.dict()
     }
 

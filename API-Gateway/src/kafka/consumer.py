@@ -1,6 +1,6 @@
 import json
 import logging
-import asyncio  # <--- Добавил импорт
+import asyncio
 from aiokafka import AIOKafkaConsumer
 from src.config import KAFKA_BOOTSTRAP, KAFKA_TOPIC_AI_RESPONSE, KAFKA_GROUP_ID
 from src.managers import manager
@@ -15,13 +15,13 @@ class KafkaResponseConsumer:
 
     async def start(self):
         logger.info(f"CONSUMER: Starting... Topic: {KAFKA_TOPIC_AI_RESPONSE}, Group: {KAFKA_GROUP_ID}")
+
         self.consumer = AIOKafkaConsumer(
             KAFKA_TOPIC_AI_RESPONSE,
             bootstrap_servers=KAFKA_BOOTSTRAP,
             group_id=KAFKA_GROUP_ID,
             auto_offset_reset='latest',
-            enable_auto_commit=False,
-            value_deserializer=lambda m: json.loads(m.decode('utf-8'))
+            enable_auto_commit=False
         )
 
         try:
@@ -32,16 +32,28 @@ class KafkaResponseConsumer:
             async for msg in self.consumer:
                 if not self.running:
                     break
+                try:
+                    if msg.value is None:
+                        continue
+                    data = json.loads(msg.value.decode('utf-8'))
 
-                logger.info(f"CONSUMER: Received message: {msg.value}")
-                await self.process_message(msg.value)
-                await self.consumer.commit()
+                    logger.info(f"CONSUMER: Received message: {data}")
+                    await self.process_message(data)
+
+                except json.JSONDecodeError as e:
+                    logger.error(f"CONSUMER: JSON Decode Error (Skipping). Error: {e}. Raw: {msg.value}")
+
+                except Exception as e:
+                    logger.exception(f"CONSUMER: Error processing message: {e}")
+
+                finally:
+                    await self.consumer.commit()
 
         except asyncio.CancelledError:
             logger.info("CONSUMER: Task cancelled. Shutting down gracefully...")
 
         except Exception as e:
-            logger.error(f"CONSUMER: Crashed with error: {e}")
+            logger.error(f"CONSUMER: Critical crash: {e}")
 
         finally:
             logger.info("CONSUMER: Stopping...")
@@ -55,13 +67,16 @@ class KafkaResponseConsumer:
         task_id = data.get("task_id")
 
         if user_id:
-            logger.info(f"CONSUMER: Found active user {user_id}. Sending to WebSocket...")
+            logger.info(f"CONSUMER: {user_id}. Sending to WebSocket...")
             payload = {
                 "task_id": task_id,
                 "status": "finished",
                 "payload": data
             }
-            await manager.send_message(user_id, payload)
+            try:
+                await manager.send_message(user_id, payload)
+            except Exception as e:
+                logger.error(f"CONSUMER: Failed to send to WebSocket user {user_id}: {e}")
         else:
             logger.warning(f"CONSUMER: Message received without user_id: {user_id}! Data: {data}")
 

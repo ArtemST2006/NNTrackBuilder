@@ -1,3 +1,6 @@
+import datetime
+from typing import List
+
 from pydantic import BaseModel
 
 
@@ -18,7 +21,7 @@ class UserSignInResponse(BaseModel):
 
 class AIRequest(BaseModel):
     category: list
-    time: float
+    time: float # вреям которое пользователь готов потратить на прогулку
     cords: str
     place: str
 
@@ -26,5 +29,23 @@ class AIRequest(BaseModel):
 class AcceptResponse(BaseModel):
     user_id: int
     task_id: str
+
+
+class PlaceItem(BaseModel):
+    coordinates: str
+    description: str
+
+class AIResponse(BaseModel):
+    user_id: int
+    task_id: str
+    output: List[PlaceItem]
+    description: str
+    time: float
+    long: float
+    advice: str
+
+
+class StatisticResponse(BaseModel):
+    statistic: List[AIResponse]
 
 

@@ -100,56 +100,6 @@ def create_vectordb(places: List[Dict], embeddings: np.ndarray, db_path: str) ->
         )
 
         print(f"Данные загружены\n")
-
-        query_model = SentenceTransformer(MODEL_NAME)
-
-        query_embedding = query_model.encode("парк", convert_to_numpy=True).tolist()
-
-        try:
-            results = collection.query(
-                query_embeddings=[query_embedding],
-                where={"search_category": "парк"},
-                n_results=3,
-            )
-
-            if results and results.get("ids"):
-                ids = results["ids"][0]
-                docs = results["documents"][0]
-                dists = results["distances"][0]
-                metas = results["metadatas"][0]
-
-                for i, (place_id, doc, dist, meta) in enumerate(
-                    zip(ids, docs, dists, metas)
-                ):
-                    dist_val = dist[0] if isinstance(dist, list) else dist
-                    dist_text = (
-                        f"{dist_val:.3f}"
-                        if isinstance(dist_val, (float, int))
-                        else str(dist_val)
-                    )
-                    print(f"  {i + 1}. {doc[:60]}... (расстояние: {dist_text})")
-                    print(f"     Категория: {meta.get('search_category', 'N/A')}\n")
-            else:
-                print("  Результатов не найдено с фильтром по категории 'парк'")
-
-                results = collection.query(
-                    query_embeddings=[query_embedding], n_results=3
-                )
-
-                for i, (place_id, doc, dist) in enumerate(
-                    zip(results["ids"], results["documents"], results["distances"])
-                ):
-                    dist_val = dist[0] if isinstance(dist, list) else dist
-                    dist_text = (
-                        f"{dist_val:.3f}"
-                        if isinstance(dist_val, (float, int))
-                        else str(dist_val)
-                    )
-                    print(f"  {i + 1}. {doc[:60]}... (расстояние: {dist_text})")
-
-        except Exception as e:
-            print(f"Ошибка при поиске: {e}")
-
     except Exception as e:
         print(f"Ошибка при создании БД: {e}")
         exit(1)
@@ -158,7 +108,7 @@ def create_vectordb(places: List[Dict], embeddings: np.ndarray, db_path: str) ->
 def main():
     script_dir = Path(__file__).parent.parent
 
-    DATA_FILE = script_dir / "data" / "raw" / "all_places_semantic_tags_updated.json"
+    DATA_FILE = script_dir / "data" / "processed" / "places_with_updated_search_text.json"
     EMBEDDINGS_FILE = script_dir / "data" / "embeddings" / "place_embeddings.npy"
     DB_PATH = script_dir / "chroma_db"
 

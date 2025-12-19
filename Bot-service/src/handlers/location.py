@@ -10,12 +10,6 @@ logger = logging.getLogger(__name__)
 
 @router.message(F.location)
 async def handle_location_anywhere(message: types.Message, state: FSMContext):
-    """
-    Обработчик геолокации в любом состоянии
-    
-    Если пользователь отправил геолокацию вне процесса создания маршрута,
-    предлагаем начать создание маршрута от этой точки
-    """
     location = message.location
     
     # Проверяем текущее состояние
@@ -54,7 +48,6 @@ async def handle_location_anywhere(message: types.Message, state: FSMContext):
 
 @router.message(lambda message: message.text == "🗺️ Создать маршрут отсюда")
 async def start_route_from_location(message: types.Message, state: FSMContext):
-    """Начать создание маршрута из сохраненной локации"""
     data = await state.get_data()
     location = data.get("last_location")
     
@@ -77,7 +70,6 @@ async def start_route_from_location(message: types.Message, state: FSMContext):
 
 @router.message(lambda message: message.text == "🔙 Главное меню")
 async def back_to_main_menu(message: types.Message, state: FSMContext):
-    """Вернуться в главное меню"""
     await state.clear()
     
     # Проверяем авторизацию для правильного меню

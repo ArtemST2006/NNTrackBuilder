@@ -29,7 +29,6 @@ logger = logging.getLogger(__name__)
 
 
 async def shutdown(dispatcher: Dispatcher, bot: Bot):
-    """Корректное завершение работы бота"""
     logger.info("🛑 Начинаю завершение работы...")
     
     # Закрываем WebSocket соединение
@@ -46,7 +45,6 @@ async def shutdown(dispatcher: Dispatcher, bot: Bot):
 
 async def main():
     logger.info("MAIN CODE VERSION: 2025-12-19-1")
-    """Основная функция запуска бота"""
     try:
         # Проверяем конфигурацию
         config.validate()
@@ -73,7 +71,7 @@ async def main():
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, signal_handler)
     
-    # Подключаем роутеры (важен порядок!)
+    # Подключаем роутеры
     dp.include_router(start_router)
     logger.info("start_router подключен")
     dp.include_router(help_router)
@@ -84,12 +82,6 @@ async def main():
     logger.info("auth_router подключен")
     dp.include_router(route_router)
     logger.info("route_router подключен")
-    
-    # Эхо-обработчик для отладки (убрать в production)
-    # @dp.message()
-    # async def debug_handler(message):
-    #     """Обработчик для отладки необработанных сообщений"""
-    #     logger.info(f"DEBUG-CATCH: {message.from_user.id} -> {message.text!r}")
     
     # Получаем информацию о боте
     try:
@@ -105,13 +97,14 @@ async def main():
     # Проверяем доступность API Gateway
     from services.api_client import api_client
     try:
-        health = await api_client.health_check()
-        if health:
-            logger.info("✅ API Gateway доступен")
-        else:
-            logger.warning("⚠️ API Gateway недоступен, некоторые функции могут не работать")
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{config.API_GATEWAY_URL}/docs", timeout=3) as resp:
+                if resp.status < 500:
+                    logger.info("✅ API Gateway доступен")
+                else:
+                    logger.warning("⚠️ API Gateway отвечает с ошибкой")
     except:
-        logger.warning("⚠️ Не удалось проверить доступность API Gateway")
+        logger.warning("⚠️ API Gateway недоступен, некоторые функции могут не работать")
     
     # Очищаем истекшие токены при старте
     from services.token_storage import token_storage
@@ -131,11 +124,6 @@ async def main():
 
 
 if __name__ == "__main__":
-    # Настройка asyncio для Windows
-    if sys.platform == 'win32':
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    
-    # Запуск бота
     try:
         asyncio.run(main())
     except KeyboardInterrupt:

@@ -34,7 +34,6 @@ async def try_auto_login(telegram_id: int) -> bool:
     # 2. Пробуем авторизоваться по Telegram ID через новый эндпоинт
     logger.info(f"🔍 Пробую авторизацию по telegram_id={telegram_id}")
     try:
-        # ❗ НУЖНО ДОБАВИТЬ МЕТОД В api_client.py
         auth_response = await api_client.auth_by_telegram(str(telegram_id))
         
         if auth_response.get("success") and auth_response.get("token"):

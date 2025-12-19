@@ -1,7 +1,3 @@
-"""
-Пакет utils для утилит бота
-"""
-
 from .keyboards import (
     get_interests_keyboard,
     get_time_keyboard,

@@ -10,14 +10,7 @@ from config import config
 logger = logging.getLogger(__name__)
 
 
-class GatewayWebSocketClient:
-    """
-    WebSocket клиент для подключения к API Gateway
-    
-    Бот подключается к ws://api-gateway:8000/ws/{user_id}
-    и ожидает результаты своих запросов через это соединение
-    """
-    
+class GatewayWebSocketClient:    # WebSocket клиент для подключения к API Gateway
     def __init__(self):
         # Подключение
         self.connection: Optional[websockets.WebSocketClientProtocol] = None
@@ -31,7 +24,7 @@ class GatewayWebSocketClient:
         # Очередь для входящих сообщений
         self.incoming_queue: asyncio.Queue = asyncio.Queue()
         
-        # Ожидающие задачи: task_id -> Future
+        # Ожидающие задачи: 
         self.waiting_tasks: Dict[str, asyncio.Future] = {}
         
         # Обработчики сообщений по типу
@@ -46,15 +39,6 @@ class GatewayWebSocketClient:
         self.messages_sent: int = 0
     
     async def connect(self, user_id: int) -> bool:
-        """
-        Подключиться к WebSocket API Gateway
-        
-        Args:
-            user_id: ID пользователя в нашей системе
-        
-        Returns:
-            bool: Успешно ли подключились
-        """
         # Если уже подключены для этого пользователя
         if self.connected and self.user_id == user_id:
             return True
@@ -69,7 +53,7 @@ class GatewayWebSocketClient:
         if config.API_GATEWAY_WS_URL:
             self.ws_url = f"{config.API_GATEWAY_WS_URL}/{user_id}"
         else:
-            # Авто-генерация URL из API_GATEWAY_URL
+            # Авто-генерация URL
             base_url = config.API_GATEWAY_URL
             if base_url.startswith("http://"):
                 ws_base = base_url.replace("http://", "ws://")
@@ -86,10 +70,10 @@ class GatewayWebSocketClient:
             # Подключаемся с таймаутом
             self.connection = await websockets.connect(
                 self.ws_url,
-                ping_interval=20,      # Пинг каждые 20 секунд
-                ping_timeout=10,       # Таймаут пинга 10 секунд
-                close_timeout=1,       # Таймаут закрытия 1 секунда
-                max_size=10 * 1024 * 1024  # Максимальный размер сообщения 10MB
+                ping_interval=20,      
+                ping_timeout=10,       
+                close_timeout=1,       
+                max_size=10 * 1024 * 1024 
             )
             
             self.connected = True
@@ -110,7 +94,6 @@ class GatewayWebSocketClient:
             return False
     
     async def disconnect(self):
-        """Закрыть соединение и очистить состояние"""
         self.running = False
         self.connected = False
         
@@ -141,7 +124,6 @@ class GatewayWebSocketClient:
         logger.info("🌐 WebSocket соединение закрыто")
     
     async def _receive_loop(self):
-        """Цикл приема сообщений от WebSocket"""
         while self.running and self.connected:
             try:
                 # Получаем сообщение
@@ -165,7 +147,6 @@ class GatewayWebSocketClient:
                 break
     
     async def _process_messages_loop(self):
-        """Цикл обработки входящих сообщений"""
         while self.running:
             try:
                 # Ждем сообщение из очереди с таймаутом
@@ -186,12 +167,6 @@ class GatewayWebSocketClient:
                 logger.error(f"❌ Ошибка в process_messages_loop: {e}")
     
     async def _process_message(self, message: str):
-        """
-        Обработать входящее сообщение
-        
-        Args:
-            message: Сообщение в формате JSON строки
-        """
         try:
             data = json.loads(message)
             
@@ -229,7 +204,6 @@ class GatewayWebSocketClient:
             logger.error(f"❌ Ошибка обработки сообщения: {e}")
     
     async def _handle_disconnection(self):
-        """Обработать отключение соединения"""
         if self.reconnect_attempts < self.max_reconnect_attempts:
             self.reconnect_attempts += 1
             delay = config.WS_RECONNECT_DELAY * self.reconnect_attempts
@@ -244,16 +218,6 @@ class GatewayWebSocketClient:
             logger.error(f"❌ Достигнут максимум попыток переподключения ({self.max_reconnect_attempts})")
     
     async def wait_for_task(self, task_id: str, timeout: int = None) -> Dict[str, Any]:
-        """
-        Ожидать результат конкретной задачи
-        
-        Args:
-            task_id: ID задачи
-            timeout: Таймаут ожидания в секундах (по умолчанию из config)
-        
-        Returns:
-            dict: Результат задачи или сообщение об ошибке
-        """
         if not self.connected:
             return {
                 "success": False,
@@ -298,26 +262,10 @@ class GatewayWebSocketClient:
             }
     
     def register_handler(self, message_type: str, handler: Callable):
-        """
-        Зарегистрировать обработчик для определенного типа сообщений
-        
-        Args:
-            message_type: Тип сообщения (например "finished", "error", "*" для всех)
-            handler: Функция-обработчик, принимающая dict с данными
-        """
         self.message_handlers[message_type] = handler
         logger.info(f"📋 Зарегистрирован обработчик для типа: {message_type}")
     
     async def send_message(self, data: dict) -> bool:
-        """
-        Отправить сообщение через WebSocket
-        
-        Args:
-            data: Данные для отправки (будут преобразованы в JSON)
-        
-        Returns:
-            bool: Успешно ли отправлено
-        """
         if not self.connected:
             logger.error("❌ Не удалось отправить сообщение: WebSocket не подключен")
             return False
@@ -334,36 +282,15 @@ class GatewayWebSocketClient:
             return False
     
     def is_connected(self) -> bool:
-        """
-        Проверка подключения
-        
-        Returns:
-            bool: True если подключен
-        """
         return self.connected and self.running
     
     async def ensure_connection(self, user_id: int) -> bool:
-        """
-        Гарантировать подключение для пользователя
-        
-        Args:
-            user_id: ID пользователя
-        
-        Returns:
-            bool: Успешно ли подключение
-        """
         if self.is_connected() and self.user_id == user_id:
             return True
         
         return await self.connect(user_id)
     
     def get_stats(self) -> Dict[str, Any]:
-        """
-        Получить статистику работы клиента
-        
-        Returns:
-            dict: Статистика
-        """
         return {
             "connected": self.connected,
             "user_id": self.user_id,
@@ -375,12 +302,6 @@ class GatewayWebSocketClient:
         }
     
     async def ping(self) -> bool:
-        """
-        Отправить ping для проверки соединения
-        
-        Returns:
-            bool: Успешен ли ping
-        """
         if not self.connected:
             return False
         

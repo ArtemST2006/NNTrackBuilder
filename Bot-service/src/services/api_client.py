@@ -361,21 +361,6 @@ class ApiClient:
                 "error": "Внутренняя ошибка",
                 "details": str(e)
             }
-    
-    async def health_check(self) -> bool:
-        """
-        Проверить доступность API Gateway
-        
-        Returns:
-            bool: Доступен ли API Gateway
-        """
-        await self.connect()
-        
-        try:
-            async with self.session.get(f"{self.base_url}/health", timeout=5) as response:
-                return response.status == 200
-        except:
-            return False
 
     async def auth_by_telegram(self, telegram_id: str) -> Dict[str, Any]:
         """

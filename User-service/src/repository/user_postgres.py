@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from src.models.tables import User
 from typing import Optional
-from src.midlware.utils import get_password_hash  # ❗ ДОБАВЛЯЕМ ИМПОРТ ДЛЯ ХЕШИРОВАНИЯ
+from src.midlware.utils import get_password_hash 
 
 class UserRepository:
     def __init__(self, db: AsyncSession):
@@ -17,7 +17,7 @@ class UserRepository:
     async def create(self, email: str, password: str, username: str) -> User:
         new_user = User(
             email=email,
-            password=get_password_hash(password),  # ❗ ИСПОЛЬЗУЕМ ХЕШИРОВАНИЕ
+            password=get_password_hash(password), 
             username=username,
         )
         self.db.add(new_user)
@@ -34,7 +34,6 @@ class UserRepository:
 
     # МЕТОДЫ ДЛЯ TELEGRAM
     async def get_by_telegram_id(self, telegram_id: str) -> Optional[User]:
-        """Найти пользователя по Telegram ID"""
         query = select(User).where(User.telegram_id == telegram_id)
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
@@ -47,7 +46,6 @@ class UserRepository:
         first_name: Optional[str] = None,
         last_name: Optional[str] = None
     ) -> User:
-        """Привязать Telegram данные к существующему пользователю"""
         user = await self.get_by_id(user_id)
         if not user:
             raise ValueError(f"User with id {user_id} not found")
@@ -69,7 +67,6 @@ class UserRepository:
             raise e
     
     async def get_by_id(self, user_id: int) -> Optional[User]:
-        """Найти пользователя по ID"""
         query = select(User).where(User.id == user_id)
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
@@ -82,7 +79,6 @@ class UserRepository:
         first_name: Optional[str] = None,
         last_name: Optional[str] = None
     ) -> User:
-        """Создать пользователя из Telegram данных (без email и пароля)"""
         new_user = User(
             telegram_id=telegram_id,
             username=username,

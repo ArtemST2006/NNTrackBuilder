@@ -154,9 +154,6 @@ async def get_user_by_telegram(
     telegram_id: str,
     user_repo: UserRepository = Depends(get_user_repo)
 ):
-    """
-    Получить пользователя по Telegram ID
-    """
     user = await user_repo.get_by_telegram_id(telegram_id)
     if not user:
         raise HTTPException(
@@ -179,10 +176,6 @@ async def auth_by_telegram(
     auth_data: TelegramAuthRequest,
     user_repo: UserRepository = Depends(get_user_repo)
 ):
-    """
-    Авторизация по Telegram ID (для автоматического входа в боте)
-    Возвращает токен если пользователь найден по telegram_id
-    """
     # 1. Найти пользователя по telegram_id
     user = await user_repo.get_by_telegram_id(auth_data.telegram_id)
     if not user:
@@ -191,7 +184,7 @@ async def auth_by_telegram(
             detail="Пользователь с таким Telegram ID не найден"
         )
     
-    # 2. Проверить, что у пользователя есть email (он был зарегистрирован)
+    # 2. Проверить, что у пользователя есть email 
     if not user.email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

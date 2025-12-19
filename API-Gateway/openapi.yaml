@@ -33,7 +33,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserSignInRequest'  # ❗ ИСПРАВЛЯЕМ: SignIp -> SignIn
+              $ref: '#/components/schemas/UserSignInRequest'  
         required: true
       responses:
         '200':
@@ -49,7 +49,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
   
-  # ❗ ДОБАВЛЯЕМ НОВЫЕ ЭНДПОИНТЫ ДЛЯ TELEGRAM
   /api/link_telegram:
     post:
       summary: Link Telegram Account
@@ -148,7 +147,6 @@ paths:
 
 components:
   schemas:
-    # ❗ ДОБАВЛЯЕМ НОВЫЕ МОДЕЛИ ДЛЯ TELEGRAM
     TelegramAuthRequest:
       title: TelegramAuthRequest
       required:
@@ -278,7 +276,7 @@ components:
           title: Message
           type: string
     
-    UserSignInRequest:  # ❗ ИСПРАВЛЯЕМ: SignIp -> SignIn
+    UserSignInRequest:  
       title: UserSignInRequest
       required:
         - email

@@ -9,7 +9,6 @@ from typing import Optional
 
 
 def get_interests_keyboard() -> ReplyKeyboardMarkup:
-    """Клавиатура для выбора интересов при создании маршрута"""
     return ReplyKeyboardMarkup(
         keyboard=[
             [
@@ -35,7 +34,6 @@ def get_interests_keyboard() -> ReplyKeyboardMarkup:
 
 
 def get_time_keyboard() -> ReplyKeyboardMarkup:
-    """Клавиатура для выбора времени прогулки"""
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="1 час"), KeyboardButton(text="2 часа")],
@@ -48,7 +46,6 @@ def get_time_keyboard() -> ReplyKeyboardMarkup:
 
 
 def get_location_keyboard() -> ReplyKeyboardMarkup:
-    """Клавиатура для получения локации от пользователя"""
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📍 Отправить геолокацию", request_location=True)],
@@ -60,10 +57,6 @@ def get_location_keyboard() -> ReplyKeyboardMarkup:
 
 
 def get_auth_keyboard() -> ReplyKeyboardMarkup:
-    """
-    Клавиатура для неавторизованных пользователей
-    Только одна кнопка "Войти"
-    """
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="🔐 Войти")],
@@ -74,9 +67,6 @@ def get_auth_keyboard() -> ReplyKeyboardMarkup:
 
 
 def get_main_menu_keyboard(is_authenticated: bool = False) -> ReplyKeyboardMarkup:
-    """
-    Главное меню в зависимости от статуса авторизации пользователя
-    """
     if is_authenticated:
         # Меню для авторизованных пользователей
         return ReplyKeyboardMarkup(
@@ -93,9 +83,6 @@ def get_main_menu_keyboard(is_authenticated: bool = False) -> ReplyKeyboardMarku
 
 
 def get_login_choice_keyboard() -> InlineKeyboardMarkup:
-    """
-    Inline клавиатура для выбора способа входа
-    """
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -115,7 +102,6 @@ def get_login_choice_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_yes_no_keyboard() -> ReplyKeyboardMarkup:
-    """Простая клавиатура Да/Нет"""
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="✅ Да"), KeyboardButton(text="❌ Нет")]
@@ -126,7 +112,6 @@ def get_yes_no_keyboard() -> ReplyKeyboardMarkup:
 
 
 def get_cancel_keyboard() -> ReplyKeyboardMarkup:
-    """Клавиатура с кнопкой отмены"""
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="❌ Отмена")]
@@ -137,9 +122,6 @@ def get_cancel_keyboard() -> ReplyKeyboardMarkup:
 
 
 def get_inline_login_keyboard(webapp_url: Optional[str] = None) -> InlineKeyboardMarkup:
-    """
-    Inline клавиатура для входа через WebApp (старая версия)
-    """
     buttons = []
 
     if webapp_url:
@@ -161,7 +143,6 @@ def get_inline_login_keyboard(webapp_url: Optional[str] = None) -> InlineKeyboar
 
 
 def remove_keyboard() -> ReplyKeyboardRemove:
-    """Убрать клавиатуру"""
     return ReplyKeyboardRemove()
 
 

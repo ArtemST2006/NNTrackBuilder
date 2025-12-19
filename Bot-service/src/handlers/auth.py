@@ -1,6 +1,6 @@
 import logging
 from aiogram import Router, types, F
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -14,6 +14,7 @@ from utils.keyboards import (
     get_cancel_keyboard,
     get_login_choice_keyboard
 )
+from config import config
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -70,13 +71,45 @@ async def callback_login_email(callback: types.CallbackQuery, state: FSMContext)
 
 @router.callback_query(F.data == "login_webapp")
 async def callback_login_webapp(callback: types.CallbackQuery):
-    """WebApp способ входа (заглушка)"""
-    await callback.answer(
-        "⚠️ Вход через WebApp скоро будет доступен\n"
-        "Пожалуйста, используйте вход через email",
-        show_alert=True
-    )
-
+    """Открыть WebApp для входа"""
+    try:
+        # Получаем URL WebApp из конфигурации
+        webapp_url = config.WEBAPP_URL
+        
+        if not webapp_url:
+            await callback.answer(
+                "❌ WebApp URL не настроен",
+                show_alert=True
+            )
+            return
+        
+        # Создаем кнопку с WebApp
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="🔗 Открыть WebApp для входа",
+                        web_app=WebAppInfo(url=webapp_url)
+                    )
+                ]
+            ]
+        )
+        
+        await callback.message.answer(
+            "🔐 <b>Вход через WebApp</b>\n\n"
+            "Нажмите кнопку ниже чтобы открыть интерфейс входа в браузере.\n"
+            "Это удобный способ авторизации с красивым интерфейсом.",
+            reply_markup=keyboard
+        )
+        
+        await callback.answer()
+        
+    except Exception as e:
+        logger.error(f"Ошибка при открытии WebApp: {e}")
+        await callback.answer(
+            "⚠️ Ошибка при открытии WebApp. Попробуйте войти через email.",
+            show_alert=True
+        )
 
 @router.message(Command("register"))
 async def cmd_register(message: types.Message, state: FSMContext):
@@ -84,11 +117,110 @@ async def cmd_register(message: types.Message, state: FSMContext):
     await state.clear()
     await state.set_state("register_waiting_email")
     
+    logger.info(f"📝 Начало регистрации для user_id={message.from_user.id}")
+    
     await message.answer(
         "📝 <b>Регистрация нового аккаунта</b>\n\n"
         "Введите email для регистрации:",
         reply_markup=get_cancel_keyboard()
     )
+
+
+@router.message(StateFilter("register_waiting_email"))
+async def process_register_email(message: types.Message, state: FSMContext):
+    """Обработать email для регистрации"""
+    logger.info(f"📧 Получен email для регистрации: {message.text}")
+    
+    email = message.text.strip()
+    
+    if "@" not in email or "." not in email:
+        await message.answer("❌ Неверный формат email. Попробуйте снова:")
+        return
+    
+    await state.update_data(email=email)
+    await state.set_state("register_waiting_username")
+    
+    await message.answer(
+        "👤 <b>Введите имя пользователя:</b>\n\n"
+        "<i>Это имя будет отображаться в вашем профиле</i>",
+        reply_markup=get_cancel_keyboard()
+    )
+
+
+@router.message(StateFilter("register_waiting_username"))
+async def process_register_username(message: types.Message, state: FSMContext):
+    """Обработать имя пользователя для регистрации"""
+    logger.info(f"👤 Получено имя пользователя: {message.text}")
+    
+    username = message.text.strip()
+    
+    if len(username) < 3:
+        await message.answer("❌ Имя пользователя должно быть не менее 3 символов. Попробуйте снова:")
+        return
+    
+    await state.update_data(username=username)
+    await state.set_state("register_waiting_password")
+    
+    await message.answer(
+        "🔐 <b>Введите пароль:</b>\n\n"
+        "<i>Пароль должен быть не менее 6 символов</i>",
+        reply_markup=get_cancel_keyboard()
+    )
+
+
+@router.message(StateFilter("register_waiting_password"))
+async def process_register_password(message: types.Message, state: FSMContext):
+    """Обработать пароль для регистрации"""
+    logger.info(f"🔐 Получен пароль для регистрации (длина: {len(message.text)})")
+    
+    password = message.text
+    
+    if len(password) < 6:
+        await message.answer("❌ Пароль должен быть не менее 6 символов. Попробуйте снова:")
+        return
+    
+    data = await state.get_data()
+    email = data.get("email")
+    username = data.get("username")
+    
+    logger.info(f"📦 Регистрация данных: email={email}, username={username}")
+    
+    await message.answer("⏳ Регистрирую аккаунт...", reply_markup=ReplyKeyboardRemove())
+    
+    try:
+        # Отправляем запрос на регистрацию
+        response = await api_client.sign_up(email, username, password)
+        
+        logger.info(f"📡 Ответ регистрации: {response}")
+        
+        if response.get("success"):
+            await message.answer(
+                f"✅ <b>Аккаунт успешно создан!</b>\n\n"
+                f"👤 <b>Имя:</b> {username}\n"
+                f"📧 <b>Email:</b> {email}\n\n"
+                f"Теперь войдите в аккаунт командой /login",
+                reply_markup=get_auth_keyboard()
+            )
+        else:
+            error_msg = response.get("error", "Неизвестная ошибка")
+            details = response.get("details", "")
+            logger.error(f"❌ Ошибка регистрации: {error_msg} - {details}")
+            await message.answer(
+                f"❌ <b>Ошибка регистрации:</b> {error_msg}\n{details}\n\n"
+                "Попробуйте снова командой /register",
+                reply_markup=get_auth_keyboard()
+            )
+    
+    except Exception as e:
+        logger.error(f"❌ Ошибка регистрации: {e}")
+        await message.answer(
+            "❌ <b>Ошибка подключения</b>\n\n"
+            "Не удалось подключиться к сервису регистрации.",
+            reply_markup=get_auth_keyboard()
+        )
+    
+    finally:
+        await state.clear()
 
 
 @router.message(F.text == "❌ Отмена")
@@ -414,3 +546,83 @@ async def cmd_profile(message: types.Message):
         f"<i>Используйте /route для создания маршрутов</i>",
         reply_markup=get_main_menu_keyboard(is_authenticated=True)
     )
+
+@router.message(lambda message: message.web_app_data is not None)
+async def handle_webapp_data(message: types.Message, state: FSMContext):
+    """
+    Обработка данных из Telegram WebApp
+    
+    WebApp отправляет данные в формате:
+    {
+        "type": "telegram_auth",
+        "token": "jwt_token_here",
+        "user_id": 123,
+        "email": "user@example.com",
+        "telegram_id": "123456789"
+    }
+    """
+    try:
+        # Парсим данные из WebApp
+        webapp_data = json.loads(message.web_app_data.data)
+        logger.info(f"📱 Получены данные из WebApp: {webapp_data}")
+        
+        data_type = webapp_data.get("type")
+        
+        if data_type != "telegram_auth":
+            await message.answer("❌ Неверный тип данных из WebApp")
+            return
+        
+        # Извлекаем данные
+        token = webapp_data.get("token")
+        user_id = webapp_data.get("user_id")
+        email = webapp_data.get("email")
+        telegram_id = webapp_data.get("telegram_id")
+        username = webapp_data.get("username", "Пользователь")
+        
+        if not token or not user_id:
+            await message.answer("❌ Неполные данные из WebApp")
+            return
+        
+        # Проверяем что Telegram ID совпадает
+        if str(telegram_id) != str(message.from_user.id):
+            logger.warning(f"⚠️ Несоответствие Telegram ID: WebApp={telegram_id}, Message={message.from_user.id}")
+            # Но продолжаем, т.к. могла быть привязка другого аккаунта
+        
+        # Сохраняем токен
+        token_storage.set_token(
+            telegram_id=message.from_user.id,
+            token=token,
+            user_id=user_id,
+            email=email,
+            username=username
+        )
+        
+        # Подключаем WebSocket
+        ws_connected = await gateway_ws.connect(user_id)
+        
+        # Отправляем приветствие
+        success_text = (
+            f"✅ <b>Авторизация через WebApp успешна!</b>\n\n"
+            f"👤 <b>Аккаунт:</b> {username}\n"
+            f"📧 <b>Email:</b> {email}\n"
+            f"🆔 <b>ID:</b> {user_id}\n"
+        )
+        
+        if ws_connected:
+            success_text += f"\n🌐 <b>WebSocket:</b> Подключен ✅"
+        else:
+            success_text += f"\n⚠️ <b>WebSocket:</b> Не подключен"
+        
+        await message.answer(
+            success_text,
+            reply_markup=get_main_menu_keyboard(is_authenticated=True)
+        )
+        
+        logger.info(f"✅ WebApp авторизация успешна для user_id={user_id}")
+        
+    except json.JSONDecodeError:
+        await message.answer("❌ Ошибка обработки данных из WebApp")
+        logger.error("Ошибка декодирования JSON из WebApp")
+    except Exception as e:
+        await message.answer("❌ Ошибка при обработке данных из WebApp")
+        logger.error(f"Ошибка обработки WebApp данных: {e}")

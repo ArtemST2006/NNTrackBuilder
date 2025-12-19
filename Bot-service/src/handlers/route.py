@@ -4,11 +4,11 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import ReplyKeyboardRemove
 
-from ..states import RouteStates
-from ..services.api_client import api_client
-from ..services.token_storage import token_storage
-from ..services.websocket_client import gateway_ws
-from ..utils.keyboards import (
+from states import RouteStates
+from services.api_client import api_client
+from services.token_storage import token_storage
+from services.websocket_client import gateway_ws
+from utils.keyboards import (
     get_interests_keyboard,
     get_time_keyboard,
     get_location_keyboard,

@@ -1,7 +1,7 @@
 import aiohttp
 import logging
 from typing import Dict, Any, Optional
-from ..config import config
+from config import config
 from .token_storage import token_storage
 
 logger = logging.getLogger(__name__)
@@ -376,6 +376,76 @@ class ApiClient:
                 return response.status == 200
         except:
             return False
+
+    async def auth_by_telegram(self, telegram_id: str) -> Dict[str, Any]:
+        """
+        Авторизация по Telegram ID
+        
+        Args:
+            telegram_id: Telegram ID пользователя
+        
+        Returns:
+            dict: Результат авторизации с токеном или ошибкой
+        """
+        await self.connect()
+        
+        url = f"{self.base_url}/api/auth/telegram"
+        payload = {"telegram_id": telegram_id}
+        
+        try:
+            logger.info(f"🔐 Авторизация по Telegram ID: {telegram_id}")
+            
+            async with self.session.post(url, json=payload) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    logger.info(f"✅ Успешная авторизация по Telegram ID: {telegram_id}")
+                    return {
+                        "success": True,
+                        "token": data.get("token"),
+                        "user_id": data.get("user_id"),
+                        "username": data.get("username"),
+                        "email": data.get("email"),
+                        "telegram_id": data.get("telegram_id"),
+                        "message": data.get("message", "Авторизация успешна")
+                    }
+                elif response.status == 404:
+                    logger.info(f"❌ Пользователь с Telegram ID {telegram_id} не найден")
+                    return {
+                        "success": False,
+                        "error": "Пользователь не найден",
+                        "details": "Пользователь с таким Telegram ID не зарегистрирован"
+                    }
+                elif response.status == 400:
+                    error_detail = (await response.json()).get("detail", "Ошибка авторизации")
+                    logger.warning(f"❌ Ошибка авторизации по Telegram: {error_detail}")
+                    return {
+                        "success": False,
+                        "error": "Ошибка авторизации",
+                        "details": error_detail
+                    }
+                else:
+                    error_text = await response.text()
+                    logger.error(f"❌ Ошибка сервера при авторизации по Telegram: {response.status}")
+                    return {
+                        "success": False,
+                        "error": f"Ошибка сервера: {response.status}",
+                        "details": error_text[:200]
+                    }
+                    
+        except aiohttp.ClientConnectionError:
+            logger.error("❌ Ошибка подключения к API Gateway")
+            return {
+                "success": False,
+                "error": "Не удалось подключиться к сервису",
+                "details": "Проверьте подключение и попробуйте позже"
+            }
+        except Exception as e:
+            logger.error(f"❌ Неизвестная ошибка при авторизации по Telegram: {e}")
+            return {
+                "success": False,
+                "error": "Внутренняя ошибка",
+                "details": str(e)
+            }
 
 
 # Глобальный экземпляр клиента

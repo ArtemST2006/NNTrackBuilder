@@ -2,7 +2,7 @@ import logging
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 
-from ..utils.keyboards import get_main_menu_keyboard
+from utils.keyboards import get_main_menu_keyboard
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -92,7 +92,12 @@ async def back_to_main_menu(message: types.Message, state: FSMContext):
     )
 
 
-@router.message(F.text.regexp(r'.*(ул\.|просп\.|площадь|кремль|парк|музей).*', ignore_case=True))
+@router.message(
+    lambda m: m.text and any(
+        key in m.text.lower()
+        for key in ("ул.", "просп.", "площадь", "кремль", "парк", "музей")
+    )
+)
 async def handle_address_like_message(message: types.Message, state: FSMContext):
     """
     Обработчик сообщений похожих на адреса

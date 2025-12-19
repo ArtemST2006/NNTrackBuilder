@@ -9,7 +9,6 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from config import config
 from services.websocket_client import gateway_ws
 
-# Импорты обработчиков
 from handlers.start import router as start_router
 from handlers.help import router as help_router
 from handlers.location import router as location_router
@@ -46,6 +45,7 @@ async def shutdown(dispatcher: Dispatcher, bot: Bot):
 
 
 async def main():
+    logger.info("MAIN CODE VERSION: 2025-12-19-1")
     """Основная функция запуска бота"""
     try:
         # Проверяем конфигурацию
@@ -75,23 +75,27 @@ async def main():
     
     # Подключаем роутеры (важен порядок!)
     dp.include_router(start_router)
+    logger.info("start_router подключен")
     dp.include_router(help_router)
+    logger.info("help_router подключен")
     dp.include_router(location_router)
+    logger.info("location_router подключен")
     dp.include_router(auth_router)
+    logger.info("auth_router подключен")
     dp.include_router(route_router)
+    logger.info("route_router подключен")
     
     # Эхо-обработчик для отладки (убрать в production)
-    @dp.message()
-    async def debug_handler(message):
-        """Обработчик для отладки необработанных сообщений"""
-        logger.debug(f"📨 Необработанное сообщение от {message.from_user.id}: {message.text}")
+    # @dp.message()
+    # async def debug_handler(message):
+    #     """Обработчик для отладки необработанных сообщений"""
+    #     logger.info(f"DEBUG-CATCH: {message.from_user.id} -> {message.text!r}")
     
     # Получаем информацию о боте
     try:
         bot_info = await bot.get_me()
         logger.info(f"🤖 Бот запущен: @{bot_info.username} ({bot_info.full_name})")
         logger.info(f"🌐 API Gateway: {config.API_GATEWAY_URL}")
-        logger.info(f"🎮 Демо-режим: {'ВКЛ' if config.ENABLE_DEMO_MODE else 'ВЫКЛ'}")
         
     except Exception as e:
         logger.error(f"❌ Ошибка подключения к Telegram API: {e}")

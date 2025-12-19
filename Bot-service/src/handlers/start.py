@@ -1,36 +1,89 @@
 from aiogram import Router, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from ..services.token_storage import token_storage
-from ..utils.keyboards import get_main_menu_keyboard
+from services.token_storage import token_storage
+from services.api_client import api_client
+from services.websocket_client import gateway_ws
+from utils.keyboards import (
+    get_main_menu_keyboard, 
+    get_login_choice_keyboard,
+    get_auth_keyboard
+)
 
 router = Router()
 
+import logging
+logger = logging.getLogger(__name__)
+
+
+async def try_auto_login(telegram_id: int) -> bool:
+    logger.info(f"🔄 Пробую автоматический вход для telegram_id={telegram_id}")
+    
+    # 1. Проверяем локальное хранилище токенов
+    if token_storage.has_token(telegram_id):
+        token = token_storage.get_token(telegram_id)
+        user_id = token_storage.get_user_id(telegram_id)
+        
+        logger.info(f"✅ Найден токен в локальном хранилище")
+        if user_id:
+            await gateway_ws.connect(user_id)
+        return True
+    
+    # 2. Пробуем авторизоваться по Telegram ID через новый эндпоинт
+    logger.info(f"🔍 Пробую авторизацию по telegram_id={telegram_id}")
+    try:
+        # ❗ НУЖНО ДОБАВИТЬ МЕТОД В api_client.py
+        auth_response = await api_client.auth_by_telegram(str(telegram_id))
+        
+        if auth_response.get("success") and auth_response.get("token"):
+            token = auth_response["token"]
+            user_id = auth_response["user_id"]
+            email = auth_response.get("email", "")
+            username = auth_response.get("username", "")
+            
+            # Сохраняем токен
+            token_storage.set_token(
+                telegram_id=telegram_id,
+                token=token,
+                user_id=user_id,
+                email=email,
+                username=username
+            )
+            
+            # Подключаем WebSocket
+            if user_id:
+                await gateway_ws.connect(user_id)
+            
+            logger.info(f"✅ Автоматический вход успешен для user_id={user_id}")
+            return True
+            
+    except Exception as e:
+        logger.error(f"❌ Ошибка автоматического входа: {e}")
+    
+    return False
+
+
 @router.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
-    """
-    Обработчик команды /start
+    logger.info(f"🚀 /start от user={message.from_user.id}")
     
-    Показывает приветственное сообщение и меню
-    в зависимости от статуса авторизации пользователя
-    """
-    # Очищаем состояние на всякий случай
+    # Очищаем состояние
     await state.clear()
-    
+
     user = message.from_user
     telegram_id = user.id
     
-    # Проверяем авторизацию
-    token = token_storage.get_token(telegram_id)
-    is_authenticated = token is not None
+    # Пытаемся автоматически авторизовать
+    is_authenticated = await try_auto_login(telegram_id)
     
     if is_authenticated:
-        # Пользователь авторизован
+        # Уже авторизован (был токен в хранилище)
         welcome_text = f"""
 👋 <b>С возвращением, {user.first_name}!</b>
 
-✅ Вы авторизованы и можете создавать персонализированные маршруты.
+✅ Вы уже авторизованы и можете создавать персонализированные маршруты.
 
 🎯 <b>Доступные команды:</b>
 • /route — Создать новый маршрут
@@ -41,9 +94,10 @@ async def cmd_start(message: types.Message, state: FSMContext):
 🚀 <b>Быстрый старт:</b>
 Нажмите кнопку ниже чтобы начать создание маршрута!
 """
+        keyboard = get_main_menu_keyboard(is_authenticated=True)
         
     else:
-        # Пользователь не авторизован
+        # Не авторизован
         welcome_text = f"""
 👋 <b>Привет, {user.first_name}!</b>
 
@@ -55,34 +109,22 @@ async def cmd_start(message: types.Message, state: FSMContext):
 • Оптимизировать время прогулки
 • Подбирать места рядом с тобой
 
-🔐 <b>Для полного доступа:</b>
-1. Войдите в аккаунт (кнопка ниже)
-2. Создавайте персонализированные маршруты
-3. Получайте рекомендации на основе ваших предпочтений
+🔐 <b>Чтобы начать:</b>
+Войдите в аккаунт, чтобы создавать персонализированные маршруты.
 
-🔄 <b>Даже без входа:</b>
-Вы можете попробовать демо-версию!
-
-🎯 <b>Основные команды:</b>
-• /login — Войти в аккаунт
-• /route — Демо-маршрут
-• /help — Помощь по командам
-• /about — О проекте
+💡 <b>При первом входе:</b>
+Ваш Telegram ID будет привязан к аккаунту.
+В следующий раз вход будет автоматическим!
 """
+        # Показываем только кнопку "Войти"
+        keyboard = get_auth_keyboard()
     
-    # Отправляем приветствие с соответствующей клавиатурой
-    await message.answer(
-        welcome_text,
-        reply_markup=get_main_menu_keyboard(is_authenticated)
-    )
+    # Отправляем приветствие
+    await message.answer(welcome_text, reply_markup=keyboard)
 
 
 @router.message(Command("about"))
 async def cmd_about(message: types.Message):
-    """
-    Обработчик команды /about
-    Показывает информацию о проекте
-    """
     about_text = """
 ℹ️ <b>О проекте Nizhny Route Builder</b>
 
@@ -116,7 +158,6 @@ async def cmd_about(message: types.Message):
 Исходный код открыт для обучения.
 Архитектура может быть использована как шаблон для похожих проектов.
 """
-    
     await message.answer(about_text)
 
 
@@ -129,39 +170,23 @@ async def about_button(message: types.Message):
 # Обработчики кнопок главного меню
 @router.message(lambda message: message.text == "🗺️ Создать маршрут")
 async def create_route_button(message: types.Message, state: FSMContext):
-    """Обработчик кнопки "Создать маршрут" из меню"""
     from .route import cmd_route
     await cmd_route(message, state)
 
 
 @router.message(lambda message: message.text == "👤 Профиль")
 async def profile_button(message: types.Message):
-    """Обработчик кнопки "Профиль" из меню"""
     from .auth import cmd_profile
     await cmd_profile(message)
 
 
 @router.message(lambda message: message.text == "🔐 Войти")
 async def login_button(message: types.Message, state: FSMContext):
-    """Обработчик кнопки "Войти" из меню"""
-    from .auth import cmd_login
-    await cmd_login(message, state)
+    from .auth import cmd_login_choice
+    await cmd_login_choice(message, state)
 
 
 @router.message(lambda message: message.text == "🚪 Выйти")
 async def logout_button(message: types.Message):
-    """Обработчик кнопки "Выйти" из меню"""
     from .auth import cmd_logout
     await cmd_logout(message)
-
-
-@router.message(lambda message: message.text == "🗺️ Демо-маршрут")
-async def demo_route_button(message: types.Message, state: FSMContext):
-    """Обработчик кнопки "Демо-маршрут" из меню"""
-    # Показываем демо-маршрут без авторизации
-    await message.answer(
-        "🚀 <b>Демо-режим маршрута</b>\n\n"
-        "В демо-режиме вы можете увидеть пример работы бота.\n"
-        "Для создания персонализированных маршрутов нужна авторизация.\n\n"
-        "Используйте команду /route для демо-маршрута или войдите в аккаунт."
-    )

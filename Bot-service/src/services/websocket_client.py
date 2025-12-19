@@ -5,7 +5,7 @@ from typing import Dict, Optional, Callable, Any
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from ..config import config
+from config import config
 
 logger = logging.getLogger(__name__)
 

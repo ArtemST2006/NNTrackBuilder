@@ -2,16 +2,17 @@ import logging
 from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import ReplyKeyboardRemove
+from aiogram.types import ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
 
-from ..states import AuthStates
-from ..services.api_client import api_client
-from ..services.token_storage import token_storage
-from ..services.websocket_client import gateway_ws
-from ..utils.keyboards import (
+from states import AuthStates
+from services.api_client import api_client
+from services.token_storage import token_storage
+from services.websocket_client import gateway_ws
+from utils.keyboards import (
     get_main_menu_keyboard, 
     get_auth_keyboard,
-    get_cancel_keyboard
+    get_cancel_keyboard,
+    get_login_choice_keyboard
 )
 
 router = Router()
@@ -20,29 +21,66 @@ logger = logging.getLogger(__name__)
 
 @router.message(Command("login"))
 @router.message(F.text == "🔐 Войти")
-async def cmd_login(message: types.Message, state: FSMContext):
+async def cmd_login_choice(message: types.Message, state: FSMContext):
     """
-    Начать процесс авторизации
-    
-    Пользователь может войти через email/password
-    или зарегистрироваться через /register
+    Показать выбор способа входа
     """
     await state.clear()
-    await state.set_state(AuthStates.waiting_email)
+    
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📧 Войти через email",
+                    callback_data="login_email"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔗 Войти через WebApp",
+                    callback_data="login_webapp"
+                )
+            ]
+        ]
+    )
     
     await message.answer(
-        "🔐 <b>Вход в аккаунт</b>\n\n"
+        "🔐 <b>Выберите способ входа:</b>\n\n"
+        "• <b>Через email</b> — стандартный вход по логину и паролю\n"
+        "• <b>Через WebApp</b> — удобный интерфейс в браузере\n\n"
+        "<i>При первом входе ваш Telegram ID будет привязан к аккаунту</i>",
+        reply_markup=keyboard
+    )
+
+
+@router.callback_query(F.data == "login_email")
+async def callback_login_email(callback: types.CallbackQuery, state: FSMContext):
+    """Начать процесс входа через email"""
+    await callback.message.delete()
+    await state.set_state(AuthStates.waiting_email)
+    
+    await callback.message.answer(
+        "📧 <b>Вход через email</b>\n\n"
         "Введите ваш email для входа:\n\n"
         "<i>Или используйте /register для регистрации нового аккаунта</i>",
         reply_markup=get_cancel_keyboard()
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "login_webapp")
+async def callback_login_webapp(callback: types.CallbackQuery):
+    """WebApp способ входа (заглушка)"""
+    await callback.answer(
+        "⚠️ Вход через WebApp скоро будет доступен\n"
+        "Пожалуйста, используйте вход через email",
+        show_alert=True
     )
 
 
 @router.message(Command("register"))
 async def cmd_register(message: types.Message, state: FSMContext):
-    """
-    Начать процесс регистрации нового пользователя
-    """
+    """Начать процесс регистрации нового пользователя"""
     await state.clear()
     await state.set_state("register_waiting_email")
     
@@ -115,8 +153,13 @@ async def process_password(message: types.Message, state: FSMContext):
                     token_storage.set_token(
                         telegram_id=message.from_user.id,
                         token=token,
-                        user_id=user_id
+                        user_id=user_id,
+                        email=email,
+                        username=username
                     )
+                    
+                    # Привязываем Telegram ID к аккаунту
+                    await link_telegram_account(token, message.from_user)
                     
                     # Подключаемся к WebSocket API Gateway
                     ws_connected = await gateway_ws.connect(user_id)
@@ -134,7 +177,8 @@ async def process_password(message: types.Message, state: FSMContext):
                         success_text += f"\n⚠️ <b>WebSocket:</b> Не подключен (переподключимся при создании маршрута)"
                     
                     success_text += (
-                        f"\n\nТеперь вы можете создавать персонализированные маршруты!"
+                        f"\n\n💡 <b>Telegram ID привязан!</b>\n"
+                        f"В следующий раз вход будет автоматическим."
                     )
                     
                     await message.answer(
@@ -183,6 +227,34 @@ async def process_password(message: types.Message, state: FSMContext):
     
     finally:
         await state.clear()
+
+
+async def link_telegram_account(token: str, user: types.User):
+    """Привязать Telegram аккаунт к пользователю"""
+    try:
+        async with api_client as client:
+            headers = {"Authorization": f"Bearer {token}"}
+            response = await client.session.post(
+                f"{client.base_url}/api/link_telegram",
+                json={
+                    "telegram_id": str(user.id),
+                    "telegram_username": user.username or "",
+                    "first_name": user.first_name or "",
+                    "last_name": user.last_name or ""
+                },
+                headers=headers
+            )
+            
+            if response.status == 200:
+                logger.info(f"✅ Telegram ID {user.id} успешно привязан")
+                return True
+            else:
+                logger.warning(f"⚠️ Не удалось привязать Telegram ID: {response.status}")
+                return False
+                
+    except Exception as e:
+        logger.error(f"❌ Ошибка привязки Telegram ID: {e}")
+        return False
 
 
 @router.message(F.state == "register_waiting_email")
@@ -326,9 +398,16 @@ async def cmd_profile(message: types.Message):
     # Проверяем подключение WebSocket
     ws_status = "✅ Подключен" if gateway_ws.is_connected() else "❌ Не подключен"
     
+    # Получаем email из хранилища
+    user_data = token_storage.get_user_data(telegram_id)
+    email = user_data.get('email', 'не указан') if user_data else 'не указан'
+    username = user_data.get('username', 'не указан') if user_data else 'не указан'
+    
     await message.answer(
         f"👤 <b>Ваш профиль</b>\n\n"
-        f"🆔 <b>ID пользователя:</b> {user_id}\n"
+        f"👤 <b>Имя:</b> {username}\n"
+        f"📧 <b>Email:</b> {email}\n"
+        f"🆔 <b>User ID:</b> {user_id}\n"
         f"🤖 <b>Telegram ID:</b> {telegram_id}\n"
         f"🔐 <b>Статус авторизации:</b> Активен ✅\n"
         f"🌐 <b>WebSocket:</b> {ws_status}\n\n"

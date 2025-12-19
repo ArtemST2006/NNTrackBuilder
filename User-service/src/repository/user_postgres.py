@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from src.models.tables import User
 from typing import Optional
+from src.midlware.utils import get_password_hash  # ❗ ДОБАВЛЯЕМ ИМПОРТ ДЛЯ ХЕШИРОВАНИЯ
 
 class UserRepository:
     def __init__(self, db: AsyncSession):
@@ -16,7 +17,7 @@ class UserRepository:
     async def create(self, email: str, password: str, username: str) -> User:
         new_user = User(
             email=email,
-            password=password,
+            password=get_password_hash(password),  # ❗ ИСПОЛЬЗУЕМ ХЕШИРОВАНИЕ
             username=username,
         )
         self.db.add(new_user)
@@ -100,4 +101,3 @@ class UserRepository:
         except Exception as e:
             await self.db.rollback()
             raise e
-            

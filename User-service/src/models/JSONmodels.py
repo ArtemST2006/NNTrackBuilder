@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 
-class UserSignIpRequest(BaseModel):
+class UserSignInRequest(BaseModel):
     email: str
     password: str
 
@@ -14,6 +14,7 @@ class UserSignInResponse(BaseModel):
     user_id: int
     username: str
     message: str
+    token: str
     telegram_id: Optional[str] = None
 
 class TelegramLinkRequest(BaseModel):
@@ -30,3 +31,6 @@ class TelegramUserResponse(BaseModel):
     telegram_username: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+
+class TelegramAuthRequest(BaseModel):
+    telegram_id: str

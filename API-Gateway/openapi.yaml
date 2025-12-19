@@ -33,7 +33,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserSignIpRequest'
+              $ref: '#/components/schemas/UserSignInRequest'  # ❗ ИСПРАВЛЯЕМ: SignIp -> SignIn
         required: true
       responses:
         '200':
@@ -48,6 +48,78 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  
+  # ❗ ДОБАВЛЯЕМ НОВЫЕ ЭНДПОИНТЫ ДЛЯ TELEGRAM
+  /api/link_telegram:
+    post:
+      summary: Link Telegram Account
+      operationId: link_telegram_api_link_telegram_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelegramLinkRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  
+  /api/auth/telegram:
+    post:
+      summary: Auth by Telegram ID
+      operationId: auth_telegram_api_auth_telegram_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelegramAuthRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  
+  /api/user/by-telegram/{telegram_id}:
+    get:
+      summary: Get User by Telegram ID
+      operationId: get_user_by_telegram_api_user_by_telegram__telegram_id__get
+      parameters:
+        - name: telegram_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramUserResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+
   /api/predict:
     post:
       summary: Predict
@@ -73,8 +145,70 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+
 components:
   schemas:
+    # ❗ ДОБАВЛЯЕМ НОВЫЕ МОДЕЛИ ДЛЯ TELEGRAM
+    TelegramAuthRequest:
+      title: TelegramAuthRequest
+      required:
+        - telegram_id
+      type: object
+      properties:
+        telegram_id:
+          title: Telegram Id
+          type: string
+    
+    TelegramLinkRequest:
+      title: TelegramLinkRequest
+      required:
+        - email
+        - password
+        - telegram_id
+      type: object
+      properties:
+        email:
+          title: Email
+          type: string
+        password:
+          title: Password
+          type: string
+        telegram_id:
+          title: Telegram Id
+          type: string
+        telegram_username:
+          title: Telegram Username
+          type: string
+    
+    TelegramUserResponse:
+      title: TelegramUserResponse
+      required:
+        - user_id
+        - username
+      type: object
+      properties:
+        user_id:
+          title: User Id
+          type: integer
+        username:
+          title: Username
+          type: string
+        email:
+          title: Email
+          type: string
+        telegram_id:
+          title: Telegram Id
+          type: string
+        telegram_username:
+          title: Telegram Username
+          type: string
+        first_name:
+          title: First Name
+          type: string
+        last_name:
+          title: Last Name
+          type: string
+    
     AIRequest:
       title: AIRequest
       required:
@@ -97,6 +231,7 @@ components:
         place:
           title: Place
           type: string
+    
     AcceptResponse:
       title: AcceptResponse
       required:
@@ -110,6 +245,7 @@ components:
         task_id:
           title: Task Id
           type: string
+    
     HTTPValidationError:
       title: HTTPValidationError
       type: object
@@ -119,6 +255,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ValidationError'
+    
     UserSignInResponse:
       title: UserSignInResponse
       required:
@@ -140,8 +277,9 @@ components:
         message:
           title: Message
           type: string
-    UserSignIpRequest:
-      title: UserSignIpRequest
+    
+    UserSignInRequest:  # ❗ ИСПРАВЛЯЕМ: SignIp -> SignIn
+      title: UserSignInRequest
       required:
         - email
         - password
@@ -153,6 +291,7 @@ components:
         password:
           title: Password
           type: string
+    
     UserSignUpRequest:
       title: UserSignUpRequest
       required:
@@ -170,6 +309,7 @@ components:
         password:
           title: Password
           type: string
+    
     ValidationError:
       title: ValidationError
       required:
@@ -191,6 +331,7 @@ components:
         type:
           title: Error Type
           type: string
+  
   securitySchemes:
     OAuth2PasswordBearer:
       type: oauth2

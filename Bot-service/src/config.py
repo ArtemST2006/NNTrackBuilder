@@ -8,6 +8,9 @@ class Config:
     
     # Telegram
     BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
+
+    # Уровень логирования
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     
     # API Gateway
     API_GATEWAY_URL: str = os.getenv("API_GATEWAY_URL", "http://api-gateway:8000")
@@ -16,12 +19,12 @@ class Config:
     # Kafka (пока не используем, но оставляем)
     KAFKA_BOOTSTRAP_SERVERS: str = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
     
-    # Демо-режим
-    ENABLE_DEMO_MODE: bool = os.getenv("ENABLE_DEMO_MODE", "true").lower() == "true"
-    
     # WebSocket
     WS_RECONNECT_DELAY: int = int(os.getenv("WS_RECONNECT_DELAY", "5"))
     WS_TIMEOUT: int = int(os.getenv("WS_TIMEOUT", "120"))
+    
+    # WebApp (заглушка на будущее)
+    WEBAPP_URL: str = os.getenv("WEBAPP_URL", "http://frontend/telegram-auth")
     
     @classmethod
     def validate(cls):
@@ -44,9 +47,9 @@ class Config:
         print(f"🚀 API Gateway: {cls.API_GATEWAY_URL}")
         print(f"🌐 WebSocket: {cls.API_GATEWAY_WS_URL or 'авто'}")
         print(f"📡 Kafka: {cls.KAFKA_BOOTSTRAP_SERVERS}")
-        print(f"🎮 Демо-режим: {'ВКЛ' if cls.ENABLE_DEMO_MODE else 'ВЫКЛ'}")
         print(f"🔄 WS reconnect: {cls.WS_RECONNECT_DELAY} сек")
         print(f"⏱️ WS timeout: {cls.WS_TIMEOUT} сек")
+        print(f"📱 WebApp URL: {cls.WEBAPP_URL}")
         print("=========================")
 
 config = Config()

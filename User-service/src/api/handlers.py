@@ -4,14 +4,15 @@ from sqlalchemy.exc import IntegrityError
 
 from src.models.JSONmodels import (
     UserSignInResponse, 
-    UserSignIpRequest, 
+    UserSignInRequest, 
     UserSignUpRequest,
     TelegramLinkRequest,      
-    TelegramUserResponse     
+    TelegramUserResponse,
+    TelegramAuthRequest   
 )
 from src.database import get_db
 from src.repository.user_postgres import UserRepository
-from src.midlware.utils import verify_password
+from src.midlware.utils import verify_password, create_access_token
 
 router = APIRouter()
 
@@ -52,7 +53,7 @@ async def create_user(user_data: UserSignUpRequest, user_repo: UserRepository = 
 
 
 @router.post("/login_user", status_code=status.HTTP_200_OK, response_model=UserSignInResponse)
-async def login(user_data: UserSignIpRequest, user_repo: UserRepository = Depends(get_user_repo)):
+async def login(user_data: UserSignInRequest, user_repo: UserRepository = Depends(get_user_repo)):
     existing_user = await user_repo.get_by_email(user_data.email)
 
     if not existing_user:
@@ -61,16 +62,25 @@ async def login(user_data: UserSignIpRequest, user_repo: UserRepository = Depend
             detail=f"User with email {user_data.email} not exist"
         )
 
-    if verify_password(user_data.password, existing_user.password):
+    if not verify_password(user_data.password, existing_user.password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"{user_data.password} - is incorrect password"
+            detail="Incorrect password"
         )
+
+    token = create_access_token(
+        data={
+            "sub": existing_user.email,
+            "user_id": existing_user.id,
+            "username": existing_user.username
+        }
+    )
 
     response = UserSignInResponse(
         user_id=existing_user.id,
         username=existing_user.username,
-        message="user exists",
+        message="Login successful",
+        token=token, 
         telegram_id=existing_user.telegram_id  
     )
 
@@ -123,6 +133,7 @@ async def link_telegram(
             "user_id": updated_user.id,
             "username": updated_user.username,
             "telegram_id": updated_user.telegram_id
+            
         }
     
     except IntegrityError as e:
@@ -162,3 +173,47 @@ async def get_user_by_telegram(
         first_name=user.first_name,
         last_name=user.last_name
     )
+
+@router.post("/auth/telegram", status_code=status.HTTP_200_OK)
+async def auth_by_telegram(
+    auth_data: TelegramAuthRequest,
+    user_repo: UserRepository = Depends(get_user_repo)
+):
+    """
+    Авторизация по Telegram ID (для автоматического входа в боте)
+    Возвращает токен если пользователь найден по telegram_id
+    """
+    # 1. Найти пользователя по telegram_id
+    user = await user_repo.get_by_telegram_id(auth_data.telegram_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Пользователь с таким Telegram ID не найден"
+        )
+    
+    # 2. Проверить, что у пользователя есть email (он был зарегистрирован)
+    if not user.email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Пользователь зарегистрирован только через Telegram. "
+                   "Используйте обычный вход для связи аккаунтов."
+        )
+    
+    # 3. Создать токен
+    token = create_access_token(
+        data={
+            "sub": user.email,
+            "user_id": user.id,
+            "username": user.username,
+            "telegram_id": user.telegram_id
+        }
+    )
+    
+    return {
+        "user_id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "telegram_id": user.telegram_id,
+        "token": token,
+        "message": "Авторизация по Telegram успешна"
+    }

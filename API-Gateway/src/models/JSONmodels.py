@@ -1,27 +1,52 @@
 import datetime
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel, EmailStr
 
-from pydantic import BaseModel
 
-
-class UserSignIpRequest(BaseModel):
+class UserSignInRequest(BaseModel):  # ❗ ИСПРАВЛЯЕМ: SignIp -> SignIn
     email: str
     password: str
+
 
 class UserSignUpRequest(BaseModel):
     username: str
     email: str
     password: str
 
+
 class UserSignInResponse(BaseModel):
     token: str
     user_id: int
     username: str
     message: str
+    telegram_id: Optional[str] = None  # ❗ ДОБАВЛЯЕМ опциональное поле
+
+
+# ❗ ДОБАВЛЯЕМ МОДЕЛИ ДЛЯ TELEGRAM
+class TelegramAuthRequest(BaseModel):
+    telegram_id: str
+
+
+class TelegramLinkRequest(BaseModel):
+    email: EmailStr
+    password: str
+    telegram_id: str
+    telegram_username: Optional[str] = None
+
+
+class TelegramUserResponse(BaseModel):
+    user_id: int
+    username: str
+    email: Optional[str] = None
+    telegram_id: Optional[str] = None
+    telegram_username: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
 
 class AIRequest(BaseModel):
     category: list
-    time: float # вреям которое пользователь готов потратить на прогулку
+    time: float
     cords: str
     place: str
 
@@ -35,6 +60,7 @@ class PlaceItem(BaseModel):
     coordinates: str
     description: str
 
+
 class AIResponse(BaseModel):
     user_id: int
     task_id: str
@@ -47,5 +73,3 @@ class AIResponse(BaseModel):
 
 class StatisticResponse(BaseModel):
     statistic: List[AIResponse]
-
-

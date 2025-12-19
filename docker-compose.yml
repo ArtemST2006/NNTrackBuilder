@@ -127,7 +127,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "80:80"
+      - "80:5173"
     depends_on:
       - api-gateway
       - user-service

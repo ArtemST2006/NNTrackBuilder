@@ -13,6 +13,11 @@ export default defineConfig({
         target: 'http://api-gateway:8000',
         changeOrigin: true,
         rewrite: (path) => path
+      },
+      '/ws': {
+        target: 'ws://api-gateway:8000', // перенаправляем на бэкенд
+        ws: true, // ВАЖНО: включает проксирование веб-сокетов
+        rewrite: (path) => path.replace(/^\/ws/, '/ws') // оставляем путь как есть
       }
     }
   }

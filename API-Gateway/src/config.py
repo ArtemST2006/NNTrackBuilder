@@ -11,5 +11,5 @@ KAFKA_TOPIC_AI_REQUEST = os.getenv("KAFKA_TOPIC_AI_REQUEST", "ai.makePoints.requ
 KAFKA_TOPIC_AI_RESPONSE = os.getenv("KAFKA_TOPIC_AI_RESPONSE", "ai.makePoints.response")
 KAFKA_GROUP_ID = os.getenv("KAFKA_GROUP_ID", "api_gateway_group")
 
-USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8001")
-STATISTIC_SERVICE_URL = os.getenv("STATISTIC_SERVICE_URL", "http://statistic-service:8002")
+USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://localhost:8001")
+STATISTIC_SERVICE_URL = os.getenv("STATISTIC_SERVICE_URL", "http://localhost:8002")

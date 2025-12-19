@@ -20,7 +20,7 @@ async def statistic(user_id: int, repo: StatisticRepository = Depends(get_stat_d
         logger.info("success result of get statistic")
         return response
     except Exception:
-        logger.info("error with get statistic")
+        logger.error("error with get statistic")
         return HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="server error"

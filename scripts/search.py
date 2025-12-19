@@ -1,10 +1,82 @@
 import json
 import re
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import chromadb
 from sentence_transformers import SentenceTransformer
+
+
+class BM25Index:
+    def __init__(self, documents: Dict[str, str], k1: float = 1.5, b: float = 0.75):
+        self.documents = documents
+        self.k1 = k1
+        self.b = b
+        self.doc_lengths: Dict[str, int] = {}
+        self.avg_doc_length: float = 0.0
+        self.postings: Dict[str, List[Tuple[str, int]]] = {}
+        self.doc_freqs: Dict[str, int] = {}
+        self.N = len(documents)
+        self._build()
+
+    def _build(self) -> None:
+        if not self.documents:
+            return
+
+        total_length = 0
+        postings: Dict[str, List[Tuple[str, int]]] = {}
+        doc_freqs: Dict[str, int] = {}
+
+        for doc_id, text in self.documents.items():
+            tokens = re.findall(r"[\w-]+", text.lower(), flags=re.UNICODE)
+            total_length += len(tokens)
+            term_counts: Dict[str, int] = {}
+            for tok in tokens:
+                term_counts[tok] = term_counts.get(tok, 0) + 1
+
+            self.doc_lengths[doc_id] = len(tokens)
+
+            for term, tf in term_counts.items():
+                postings.setdefault(term, []).append((doc_id, tf))
+                doc_freqs[term] = doc_freqs.get(term, 0) + 1
+
+        self.postings = postings
+        self.doc_freqs = doc_freqs
+        self.avg_doc_length = total_length / max(1, self.N)
+
+    def search(
+        self, query_tokens: List[str], top_k: int = 20
+    ) -> List[Tuple[str, float]]:
+        if not query_tokens or not self.postings:
+            return []
+
+        scores: Dict[str, float] = {}
+        unique_terms = set(query_tokens)
+
+        for term in unique_terms:
+            posting = self.postings.get(term)
+            if not posting:
+                continue
+
+            df = self.doc_freqs.get(term, 0)
+            if df == 0:
+                continue
+
+            idf = (self.N - df + 0.5) / (df + 0.5)
+            if idf <= 0:
+                continue
+
+            idf = max(idf, 1e-9)
+            for doc_id, tf in posting:
+                denom = tf + self.k1 * (
+                    1 - self.b + self.b * self.doc_lengths[doc_id] / self.avg_doc_length
+                )
+                score = (tf * (self.k1 + 1) / denom) * idf
+                scores[doc_id] = scores.get(doc_id, 0.0) + score
+
+        ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        return ranked[:top_k]
+
 
 MODEL_NAME = "DiTy/bi-encoder-russian-msmarco"
 MIN_SCORE_SHORT_QUERY = 0.65
@@ -48,6 +120,10 @@ class HybridSearcher:
             exit(1)
 
         self.model = SentenceTransformer(MODEL_NAME)
+        self.doc_store: Dict[str, str] = {}
+        self.metadata_store: Dict[str, Dict] = {}
+        self._load_corpus()
+        self.bm25_index = BM25Index(self.doc_store) if self.doc_store else None
 
         self.tag_map = {
             "scenic": "живописное",
@@ -73,6 +149,25 @@ class HybridSearcher:
     def tokenize_query(self, query: str) -> List[str]:
         tokens = re.findall(r"[\w-]+", query.lower(), flags=re.UNICODE)
         return [t for t in tokens if len(t) >= 2 and t not in QUERY_STOPWORDS]
+
+    def _load_corpus(self, batch_size: int = 500) -> None:
+        total = self.collection.count()
+        offset = 0
+        while offset < total:
+            batch = self.collection.get(
+                include=["documents", "metadatas"],
+                limit=batch_size,
+                offset=offset,
+            )
+            ids = batch.get("ids") or []
+            docs = batch.get("documents") or []
+            metas = batch.get("metadatas") or []
+            for doc_id, doc_text, meta in zip(ids, docs, metas):
+                self.doc_store[str(doc_id)] = doc_text or ""
+                self.metadata_store[str(doc_id)] = meta or {}
+            offset += len(ids)
+            if len(ids) < batch_size:
+                break
 
     def get_lexical_weight(self, token_count: int) -> float:
         if token_count <= 2:
@@ -181,9 +276,9 @@ class HybridSearcher:
 
         query_embedding = self.model.encode(query, convert_to_numpy=True).tolist()
         effective_min_score = self.get_effective_min_score(query, min_score)
-        effective_max_distance = self.get_effective_max_distance(
-            query, max_distance
-        )
+        effective_max_distance = self.get_effective_max_distance(query, max_distance)
+        query_tokens = self.tokenize_query(query)
+        lexical_weight = self.get_lexical_weight(len(query_tokens))
 
         where_filter = self.build_where_filter(
             search_categories=search_categories,
@@ -210,9 +305,7 @@ class HybridSearcher:
         metas = raw_results["metadatas"][0]
         dists = raw_results["distances"][0]
 
-        scored_results = []
-        query_tokens = self.tokenize_query(query)
-        lexical_weight = self.get_lexical_weight(len(query_tokens))
+        candidate_map: Dict[str, Dict] = {}
 
         for doc_id, doc_text, metadata, distance in zip(ids, docs, metas, dists):
             if distance is None or distance > effective_max_distance:
@@ -231,14 +324,46 @@ class HybridSearcher:
                 "metadata": metadata,
                 "distance": distance,
                 "base_score": base_score,
-                "final_score": final_score,
                 "tags": self.parse_tags_from_metadata(
                     metadata.get("semantic_tags", "[]")
                 ),
             }
+            candidate_map[str(doc_id)] = result
+
+        bm25_results: List[Tuple[str, float]] = []
+        if self.bm25_index:
+            bm25_results = self.bm25_index.search(
+                query_tokens, top_k=max(n_results * 5, n_results)
+            )
+            max_bm25 = bm25_results[0][1] if bm25_results else 0.0
+            for doc_id, bm25_score in bm25_results:
+                norm_bm25 = bm25_score / max_bm25 if max_bm25 > 0 else 0.0
+                if doc_id in candidate_map:
+                    candidate_map[doc_id]["bm25_score"] = norm_bm25
+                else:
+                    meta = self.metadata_store.get(doc_id, {})
+                    doc_text = self.doc_store.get(doc_id, "")
+                    candidate_map[doc_id] = {
+                        "id": doc_id,
+                        "name": meta.get("name", "N/A"),
+                        "text": doc_text[:80],
+                        "full_text": doc_text,
+                        "metadata": meta,
+                        "distance": None,
+                        "base_score": 0.0,
+                        "bm25_score": norm_bm25,
+                        "tags": self.parse_tags_from_metadata(
+                            meta.get("semantic_tags", "[]")
+                        ),
+                    }
+
+        scored_results = []
+        for doc_id, result in candidate_map.items():
+            base_score = result.get("base_score", 0.0)
+            bm25_score = result.get("bm25_score", 0.0)
             lexical_score = self.compute_lexical_score(result, query_tokens)
-            final_score = (1.0 - lexical_weight) * base_score + (
-                lexical_weight * lexical_score
+            final_score = (1.0 - lexical_weight) * base_score + lexical_weight * max(
+                bm25_score, lexical_score
             )
             result["final_score"] = final_score
             scored_results.append(result)
@@ -284,65 +409,3 @@ class HybridSearcher:
                     print(f"   Rating: {meta['rating']}")
 
             print()
-
-
-def main():
-    script_dir = Path(__file__).parent.parent
-    db_path = str(script_dir / "chroma_db")
-
-    searcher = HybridSearcher(db_path=db_path)
-
-    examples = [
-        {
-            "query": "красивый парк для прогулки и фото",
-            "search_categories": ["парк"],
-        },
-        {
-            "query": "исторический памятник с архитектурой",
-            "search_categories": ["памятник"],
-        },
-        {
-            "query": "вкусная выпечка с кофе",
-        },
-        {
-            "query": "ыврпоыварпыдл",
-        },
-        {
-            "query": "йух",
-        },
-        {
-            "query": "запрещенка",
-        }
-    ]
-    for i, example in enumerate(examples, 1):
-        results = searcher.search(**example)
-        searcher.print_results(results)
-
-    while True:
-        query = input("Введи запрос. ").strip()
-        if not query or query.lower() == "exit":
-            break
-
-        categories_input = input("   Категории [enter пропустить]: ").strip()
-        categories = (
-            [c.strip() for c in categories_input.split(",")]
-            if categories_input
-            else None
-        )
-
-        price_input = input("   Цена [enter пропустить]: ").strip()
-        prices = [p.strip() for p in price_input.split(",")] if price_input else None
-
-        results = searcher.search(
-            query=query,
-            n_results=5,
-            search_categories=categories,
-            price_ranges=prices,
-        )
-
-        searcher.print_results(results)
-        print()
-
-
-if __name__ == "__main__":
-    main()

@@ -108,7 +108,9 @@ def create_vectordb(places: List[Dict], embeddings: np.ndarray, db_path: str) ->
 def main():
     script_dir = Path(__file__).parent.parent
 
-    DATA_FILE = script_dir / "data" / "processed" / "places_with_updated_search_text.json"
+    DATA_FILE = (
+        script_dir / "data" / "processed" / "places_with_updated_search_text.json"
+    )
     EMBEDDINGS_FILE = script_dir / "data" / "embeddings" / "place_embeddings.npy"
     DB_PATH = script_dir / "chroma_db"
 

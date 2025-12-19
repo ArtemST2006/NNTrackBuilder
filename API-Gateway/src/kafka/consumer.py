@@ -64,17 +64,10 @@ class KafkaResponseConsumer:
 
     async def process_message(self, data: dict):
         user_id = data.get("user_id")
-        task_id = data.get("task_id")
-
         if user_id:
             logger.info(f"CONSUMER: {user_id}. Sending to WebSocket...")
-            payload = {
-                "task_id": task_id,
-                "status": "finished",
-                "payload": data
-            }
             try:
-                await manager.send_message(user_id, payload)
+                await manager.send_message(user_id, data)
             except Exception as e:
                 logger.error(f"CONSUMER: Failed to send to WebSocket user {user_id}: {e}")
         else:

@@ -42,7 +42,7 @@ async def get_current_user_id(token: str = Depends(oauth2_scheme)):
 
     try:
         dat = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = dat.get("user_id")
+        user_id: int = dat.get("user_id")
 
         if user_id is None:
             raise credentials_exception

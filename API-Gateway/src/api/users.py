@@ -1,7 +1,7 @@
 import httpx
 from fastapi import APIRouter, HTTPException, status
 from src.models.JSONmodels import UserSignInResponse, UserSignIpRequest, UserSignUpRequest
-from src.config import USER_SERVICE_URL
+from src.config import USER_SERVICE_URL, logger
 from src.midlware.utils import get_password_hash, create_access_token
 
 router = APIRouter(prefix="/api")
@@ -10,7 +10,6 @@ router = APIRouter(prefix="/api")
 async def sign_up(user_data: UserSignUpRequest):
     async with httpx.AsyncClient() as client:
         try:
-            print(user_data.password)
             hash_password = get_password_hash(str(user_data.password))
             user_data.password = hash_password
             response = await client.post(
@@ -19,7 +18,7 @@ async def sign_up(user_data: UserSignUpRequest):
             )
 
         except httpx.RequestError as e:
-            print(f"Connection error: {e}")
+            logger.error(f"Connection error: {e}")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="User Service is unavailable"
@@ -49,7 +48,7 @@ async def sign_in(user_data: UserSignIpRequest):
             )
 
         except httpx.RequestError as e:
-            print(f"Connection error: {e}")
+            logger.error(f"Connection error: {e}")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="User Service is unavailable"

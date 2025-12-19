@@ -6,6 +6,7 @@ from src.models.JSONmodels import UserSignInResponse, UserSignIpRequest, UserSig
 from src.database import get_db
 from src.repository.user_postgres import UserRepository
 from src.midlware.utils import verify_password
+from src.config import logger
 
 router = APIRouter()
 
@@ -38,7 +39,7 @@ async def create_user(user_data: UserSignUpRequest, user_repo: UserRepository = 
             detail="User already exists"
         )
     except Exception as e:
-        print(f"Internal Error: {e}")
+        logger.error(f"Internal Error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -50,12 +51,14 @@ async def login(user_data: UserSignIpRequest, user_repo: UserRepository = Depend
     existing_user = await user_repo.get_by_email(user_data.email)
 
     if not existing_user:
+        logger.info("user does not exist")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"User with email {user_data.email} not exist"
         )
 
     if verify_password(user_data.password, existing_user.password):
+        logger.info("password is incorrect")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"{user_data.password} - is incorrect password"

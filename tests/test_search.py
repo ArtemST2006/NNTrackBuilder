@@ -44,8 +44,11 @@ def main() -> None:
         for i, r in enumerate(results, 1):
             name = r.get("name")
             score = r.get("final_score")
+            meta = r.get("metadata") or {}
+            lat = r.get("lat", meta.get("lat", "N/A"))
+            lon = r.get("lon", meta.get("lon", "N/A"))
             distance = r.get("distance")
-            print(f"{i}. {name} | score={score} | distance={distance}")
+            print(f"{i}. {name} | score={score} | distance={distance} | lat/lon={lat},{lon}")
 
 
 if __name__ == "__main__":

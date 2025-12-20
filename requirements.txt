@@ -1,4 +1,4 @@
-numpy>=1.26.4
+numpy==1.26.4
 sentence-transformers>=3.0.0
 pybind11>=2.6.0
 pydantic==1.10.13
@@ -6,3 +6,4 @@ chromadb==0.4.24
 pyyaml>=6.0
 tqdm>=4.62.0
 pre-commit>=3.7.1
+hf_xet

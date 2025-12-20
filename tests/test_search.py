@@ -22,8 +22,8 @@ QUERIES = [
 
 DB_PATH = ROOT / "chroma_db"
 N_RESULTS = 5
-USER_LAT = 0
-USER_LON = 0
+USER_LAT = 56.321272
+USER_LON = 44.001221
 
 
 def main() -> None:

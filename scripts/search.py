@@ -91,8 +91,10 @@ LEXICAL_WEIGHT_MEDIUM_QUERY = 0.4
 LEXICAL_WEIGHT_LONG_QUERY = 0.3
 GEO_DISTANCE_WEIGHT = 0.1
 GEO_DISTANCE_SCALE_KM = 20.0
-SERVICE_CENTER_LAT = 53.33
-SERVICE_CENTER_LON = 44.01
+
+SERVICE_CENTER_LAT = 56.320409
+SERVICE_CENTER_LON = 44.001358
+
 SERVICE_RADIUS_KM = 50.0
 QUERY_STOPWORDS = {
     "и",
@@ -125,7 +127,13 @@ class HybridSearcher:
             print("Ошибка: ", e)
             exit(1)
 
-        self.model = SentenceTransformer(MODEL_NAME)
+        try:
+            print(f"Loading transformer model: {MODEL_NAME}")
+            self.model = SentenceTransformer(MODEL_NAME)
+            print("Transformer model loaded.")
+        except Exception as e:
+            print(f"Failed to load transformer model: {e}")
+            raise
         self.doc_store: Dict[str, str] = {}
         self.metadata_store: Dict[str, Dict] = {}
         self._load_corpus()

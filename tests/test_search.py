@@ -16,11 +16,14 @@ QUERIES = [
     "запрет",
     "Пушкин",
     "погулять с детьми",
-    "фдыыдрва паррк"
+    "фдыыдрва паррк",
+    "все",
 ]
 
 DB_PATH = ROOT / "chroma_db"
 N_RESULTS = 5
+USER_LAT = 0
+USER_LON = 0
 
 
 def main() -> None:
@@ -36,7 +39,12 @@ def main() -> None:
 
     for query in QUERIES:
         print(f"\n==== {query} ====")
-        results = searcher.search(query, n_results=N_RESULTS)
+        results = searcher.search(
+            query,
+            n_results=N_RESULTS,
+            user_lat=USER_LAT,
+            user_lon=USER_LON,
+        )
         if not results:
             print("  (ничего не найдено)")
             continue
@@ -48,7 +56,12 @@ def main() -> None:
             lat = r.get("lat", meta.get("lat", "N/A"))
             lon = r.get("lon", meta.get("lon", "N/A"))
             distance = r.get("distance")
-            print(f"{i}. {name} | score={score} | distance={distance} | lat/lon={lat},{lon}")
+            geo_km = r.get("geo_distance_km", "N/A")
+            geo_score = r.get("geo_score", "N/A")
+            print(
+                f"{i}. {name} | score={score} | distance={distance} | "
+                f"geo_km={geo_km} | geo_score={geo_score} | lat/lon={lat},{lon}"
+            )
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 import json
+import math
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -88,6 +89,11 @@ MAX_DISTANCE_LONG_QUERY = 1.1
 LEXICAL_WEIGHT_SHORT_QUERY = 0.6
 LEXICAL_WEIGHT_MEDIUM_QUERY = 0.4
 LEXICAL_WEIGHT_LONG_QUERY = 0.3
+GEO_DISTANCE_WEIGHT = 0.1
+GEO_DISTANCE_SCALE_KM = 20.0
+SERVICE_CENTER_LAT = 53.33
+SERVICE_CENTER_LON = 44.01
+SERVICE_RADIUS_KM = 50.0
 QUERY_STOPWORDS = {
     "и",
     "в",
@@ -149,6 +155,52 @@ class HybridSearcher:
     def tokenize_query(self, query: str) -> List[str]:
         tokens = re.findall(r"[\w-]+", query.lower(), flags=re.UNICODE)
         return [t for t in tokens if len(t) >= 2 and t not in QUERY_STOPWORDS]
+
+    def _parse_coordinate(self, value: Optional[object]) -> Optional[float]:
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            cleaned = value.strip()
+            if not cleaned:
+                return None
+            try:
+                return float(cleaned.replace(",", "."))
+            except ValueError:
+                return None
+        return None
+
+    def _get_place_coords(self, metadata: Dict) -> Optional[Tuple[float, float]]:
+        lat = self._parse_coordinate(metadata.get("lat"))
+        if lat is None:
+            lat = self._parse_coordinate(metadata.get("latitude"))
+
+        lon = self._parse_coordinate(metadata.get("lon"))
+        if lon is None:
+            lon = self._parse_coordinate(metadata.get("lng"))
+        if lon is None:
+            lon = self._parse_coordinate(metadata.get("longitude"))
+
+        if lat is None or lon is None:
+            return None
+        if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+            return None
+        return lat, lon
+
+    def _haversine_km(
+        self, lat1: float, lon1: float, lat2: float, lon2: float
+    ) -> float:
+        r = 6371.0
+        phi1 = math.radians(lat1)
+        phi2 = math.radians(lat2)
+        d_phi = math.radians(lat2 - lat1)
+        d_lambda = math.radians(lon2 - lon1)
+        a = (
+            math.sin(d_phi / 2.0) ** 2
+            + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2.0) ** 2
+        )
+        return 2.0 * r * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
 
     def _load_corpus(self, batch_size: int = 500) -> None:
         total = self.collection.count()
@@ -263,6 +315,8 @@ class HybridSearcher:
         price_ranges: Optional[List[str]] = None,
         seasons: Optional[List[str]] = None,
         city: Optional[str] = None,
+        user_lat: Optional[float] = None,
+        user_lon: Optional[float] = None,
         min_score: Optional[float] = None,
         max_distance: Optional[float] = None,
     ) -> List[Dict]:
@@ -279,6 +333,21 @@ class HybridSearcher:
         effective_max_distance = self.get_effective_max_distance(query, max_distance)
         query_tokens = self.tokenize_query(query)
         lexical_weight = self.get_lexical_weight(len(query_tokens))
+        user_lat_value = self._parse_coordinate(user_lat)
+        user_lon_value = self._parse_coordinate(user_lon)
+        user_has_coords = (
+            user_lat_value is not None
+            and user_lon_value is not None
+            and -90.0 <= user_lat_value <= 90.0
+            and -180.0 <= user_lon_value <= 180.0
+        )
+        if not user_has_coords:
+            return []
+        service_distance_km = self._haversine_km(
+            user_lat_value, user_lon_value, SERVICE_CENTER_LAT, SERVICE_CENTER_LON
+        )
+        if service_distance_km > SERVICE_RADIUS_KM:
+            return []
 
         where_filter = self.build_where_filter(
             search_categories=search_categories,
@@ -362,9 +431,28 @@ class HybridSearcher:
             base_score = result.get("base_score", 0.0)
             bm25_score = result.get("bm25_score", 0.0)
             lexical_score = self.compute_lexical_score(result, query_tokens)
-            final_score = (1.0 - lexical_weight) * base_score + lexical_weight * max(
+            main_score = (1.0 - lexical_weight) * base_score + lexical_weight * max(
                 bm25_score, lexical_score
             )
+            geo_distance_km = None
+            geo_score = None
+            if user_has_coords:
+                coords = self._get_place_coords(result.get("metadata", {}))
+                if coords:
+                    geo_distance_km = self._haversine_km(
+                        user_lat_value, user_lon_value, coords[0], coords[1]
+                    )
+                    geo_score = 1.0 / (1.0 + geo_distance_km / GEO_DISTANCE_SCALE_KM)
+
+            if geo_score is not None:
+                final_score = (1.0 - GEO_DISTANCE_WEIGHT) * main_score + (
+                    GEO_DISTANCE_WEIGHT * geo_score
+                )
+            else:
+                final_score = main_score
+
+            result["geo_distance_km"] = geo_distance_km
+            result["geo_score"] = geo_score
             result["final_score"] = final_score
             scored_results.append(result)
 
@@ -374,38 +462,3 @@ class HybridSearcher:
             return []
 
         return scored_results[:n_results]
-
-    def print_results(self, results: List[Dict], show_details: bool = True):
-        if not results:
-            print("Данных по вашему запросу не найдено.\n")
-            return
-
-        print(f"Найдено {len(results)} результатов:\n")
-
-        for i, result in enumerate(results, 1):
-            print(f"{i}. !!! {result['name']}")
-            print(f"   {result['full_text'][:100]}...")
-
-            if show_details:
-                print(
-                    f"   Score: {result['final_score']:.3f} | Distance: {result['distance']:.3f}"
-                )
-
-                meta = result["metadata"]
-
-                if meta.get("search_category"):
-                    print(f"   Category: {meta['search_category']}")
-
-                if result["tags"]:
-                    tags_text = ", ".join(
-                        [self.tag_map.get(tag, tag) for tag in result["tags"]]
-                    )
-                    print(f"   Tags: {tags_text}")
-
-                if meta.get("price_range"):
-                    print(f"   Price: {meta['price_range']}")
-
-                if meta.get("rating"):
-                    print(f"   Rating: {meta['rating']}")
-
-            print()

@@ -423,12 +423,59 @@ const onSubmit = async () => {
   loading.value = true
   error.value = null
   message.value = null
+
   try {
+    // 1. Если пользователь что-то печатал, но забыл нажать Enter — добавляем это сейчас
     if (customInterest.value.trim()) addCustomInterest()
+
+    // 2. Получаем координаты
     await fillCoordsFromGeolocation()
 
+    // 3. ФОРМИРУЕМ СПИСОК КАТЕГОРИЙ ДЛЯ ОТПРАВКИ
+    let finalCategories = []
+
+    // Проверяем, выбрана ли карточка "Все категории" (id: 'all')
+    const isAllSelected = category.value.includes('all')
+
+    if (isAllSelected) {
+      // ЛОГИКА ДЛЯ "ВСЕ КАТЕГОРИИ":
+
+      // А) Берем все стандартные варианты из interestOptions
+      // Фильтруем, чтобы не брать саму кнопку "all"
+      const standardLabels = interestOptions
+        .filter(opt => opt.id !== 'all')
+        .map(opt => opt.label) // <-- ВОТ ЗДЕСЬ БЕРЕТСЯ РУССКОЕ НАЗВАНИЕ (например "Кофейни")
+
+      // Б) Ищем кастомные интересы, которые ввел пользователь (их нет в interestOptions)
+      const customInputValues = category.value.filter(val =>
+        val !== 'all' && !interestOptions.some(opt => opt.id === val)
+      )
+
+      // Объединяем: Все стандартные (на русском) + всё, что ввел юзер
+      finalCategories = [...standardLabels, ...customInputValues]
+
+    } else {
+      // ЛОГИКА ОБЫЧНОГО ВЫБОРА:
+
+      finalCategories = category.value.map(selectedId => {
+        // Ищем объект опции, у которого id совпадает с тем, что выбрал юзер
+        const option = interestOptions.find(opt => opt.id === selectedId)
+
+        if (option) {
+          // Если нашли (например id='cafes'), возвращаем label ('Кофейни')
+          return option.label
+        } else {
+          // Если не нашли в списке (значит это ввел пользователь вручную), возвращаем как есть
+          return selectedId
+        }
+      })
+    }
+
+    // Для отладки можно раскомментировать эту строку и посмотреть в консоль браузера перед отправкой
+    // console.log('Отправляем на сервер:', finalCategories)
+
     const payload = {
-      category: category.value,
+      category: finalCategories, // Сюда уйдет массив ['Кофейни', 'Парки'] или ['Стрит-арт']
       time: time.value,
       cords: cords.value,
       place: place.value
@@ -438,15 +485,12 @@ const onSubmit = async () => {
       headers: { Authorization: `Bearer ${auth.token}` }
     })
 
-    // Сохраняем task_id, чтобы ждать ответ по сокету
     currentTaskId.value = resp.data.task_id
     message.value = `Запрос принят. Генерация маршрута...`
 
-    // Внимание: loading не выключаем, пока не придет ответ по сокету
-    // или можно выключить, но оставить сообщение.
-    // loading.value = false
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Ошибка'
+    console.error(err)
+    error.value = err.response?.data?.detail || 'Ошибка при отправке запроса'
     loading.value = false
   }
 }

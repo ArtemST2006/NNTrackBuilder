@@ -86,6 +86,17 @@ services:
       kafka:
         condition: service_healthy
 
+#  ai-service:
+#    build: ./AI-service
+#    container_name: ai-service
+#    environment:
+#      - KAFKA_BOOTSTRAP=kafka:9092
+#    ports:
+#      - "8004:8004"
+#    depends_on:
+#      kafka:
+#        condition: service_healthy
+
   user-service:
     build: ./User-service
     environment:

@@ -13,7 +13,6 @@ MAX_WORKERS = int(os.getenv("MAX_WORKERS", "4"))
 
 # Ключ авторизации GigaChat (Authorization Key из ЛК, НЕ access_token)
 GIGACHAT_CREDENTIALS = os.getenv("GIGACHAT_CREDENTIALS")
-# GIGACHAT_CREDENTIALS = "MDE5YjJkM2UtZGIwYS03Zjc5LTliODQtYmJiNGRlYWNiZTBlOjEwZWY3ZGM0LTJkOWEtNGY5Yy1hMTdiLWMyMDc2OTQ1ZWNlYQ=="
 
 # Скоуп API
 GIGACHAT_SCOPE = os.getenv("GIGACHAT_SCOPE", "GIGACHAT_API_PERS")

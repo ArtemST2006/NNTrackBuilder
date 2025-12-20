@@ -9,6 +9,7 @@ from typing import Optional
 
 
 def get_interests_keyboard() -> ReplyKeyboardMarkup:
+    """Клавиатура для выбора интересов"""
     return ReplyKeyboardMarkup(
         keyboard=[
             [
@@ -25,13 +26,13 @@ def get_interests_keyboard() -> ReplyKeyboardMarkup:
             ],
             [
                 KeyboardButton(text="🛍️ Магазины"),
+                KeyboardButton(text="✏️ Ввести свои варианты"),
                 KeyboardButton(text="✅ Готово"),
             ]
         ],
         resize_keyboard=True,
         one_time_keyboard=True
     )
-
 
 def get_time_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(

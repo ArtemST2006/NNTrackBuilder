@@ -291,7 +291,12 @@ async def process_password(message: types.Message, state: FSMContext):
                     )
                     
                     # Привязываем Telegram ID к аккаунту
-                    await link_telegram_account(token, message.from_user)
+                    await link_telegram_account(
+                        token=token,
+                        user=message.from_user,
+                        email=email,
+                        password=password,
+                    )
                     
                     # Подключаемся к WebSocket API Gateway
                     ws_connected = await gateway_ws.connect(user_id)
@@ -361,31 +366,34 @@ async def process_password(message: types.Message, state: FSMContext):
         await state.clear()
 
 
-async def link_telegram_account(token: str, user: types.User):
+async def link_telegram_account(token: str, user: types.User, email: str, password: str) -> bool:
     """Привязать Telegram аккаунт к пользователю"""
     try:
         async with api_client as client:
             headers = {"Authorization": f"Bearer {token}"}
+            payload = {
+                "email": email,
+                "password": password,
+                "telegram_id": str(user.id),
+                "telegram_username": user.username or "",
+            }
+
             response = await client.session.post(
                 f"{client.base_url}/api/link_telegram",
-                json={
-                    "telegram_id": str(user.id),
-                    "telegram_username": user.username or "",
-                    "first_name": user.first_name or "",
-                    "last_name": user.last_name or ""
-                },
+                json=payload,
                 headers=headers
             )
-            
+
+            body = await response.text()
             if response.status == 200:
-                logger.info(f"✅ Telegram ID {user.id} успешно привязан")
+                logger.info("✅ Telegram ID %s успешно привязан", user.id)
                 return True
-            else:
-                logger.warning(f"⚠️ Не удалось привязать Telegram ID: {response.status}")
-                return False
-                
+
+            logger.warning("⚠️ Не удалось привязать Telegram ID: %s body=%s", response.status, body[:800])
+            return False
+
     except Exception as e:
-        logger.error(f"❌ Ошибка привязки Telegram ID: {e}")
+        logger.error("❌ Ошибка привязки Telegram ID: %s", e)
         return False
 
 

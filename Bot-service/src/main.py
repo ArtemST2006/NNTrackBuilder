@@ -44,7 +44,7 @@ async def shutdown(dispatcher: Dispatcher, bot: Bot):
 
 
 async def main():
-    logger.info("MAIN CODE VERSION: 2025-12-19-1")
+    logger.info("MAIN CODE VERSION: 2025-12-20-1")
     try:
         # Проверяем конфигурацию
         config.validate()
@@ -76,12 +76,12 @@ async def main():
     logger.info("start_router подключен")
     dp.include_router(help_router)
     logger.info("help_router подключен")
-    dp.include_router(location_router)
-    logger.info("location_router подключен")
     dp.include_router(auth_router)
     logger.info("auth_router подключен")
     dp.include_router(route_router)
     logger.info("route_router подключен")
+    dp.include_router(location_router)
+    logger.info("location_router подключен")
     
     # Получаем информацию о боте
     try:

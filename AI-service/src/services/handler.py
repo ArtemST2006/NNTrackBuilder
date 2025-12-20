@@ -1,4 +1,5 @@
 import logging
+import subprocess
 from typing import Dict, Any
 
 from src.services.rag_wrapper import rag_wrapper

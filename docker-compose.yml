@@ -121,6 +121,18 @@ services:
       - api-gateway
       - user-service
 
+  ai-service:
+    build: ./AI-service
+    container_name: ai-service
+    environment:
+      - KAFKA_BOOTSTRAP=kafka:9092
+    ports:
+      - "8004:8004"
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+
 volumes:
   postgres_data:
   kafka_data:

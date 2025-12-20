@@ -9,6 +9,66 @@ logger = logging.getLogger(__name__)
 
 gigachat = GigachatService()
 
+MOCK_SEARCH_RESULTS = [
+    {
+        "id": "doc_123",
+        "name": "Кофта утеплённая 'Зимняя сказка'",
+        "text": "Утеплённая кофта для активного отдыха. Материал: флис + мембрана...",
+        "full_text": "Утеплённая кофта для активного отдыха. Материал: флис + мембрана. Подходит для температур до -15°C. Ветро- и влагозащита. Карманы на молнии, регулируемый капюшон.",
+        "metadata": {
+            "category": "одежда",
+            "price_range": "mid",
+            "season": "winter",
+            "city": "Москва",
+            "semantic_tags": '["тепло", "поход", "зима"]'
+        },
+        "distance": 0.24,
+        "base_score": 0.806,
+        "bm25_score": 0.92,
+        "lexical_score": 0.88,
+        "final_score": 0.892,
+        "tags": ["тепло", "поход", "зима"]
+    },
+    {
+        "id": "doc_456",
+        "name": "Термобельё Merino Pro",
+        "text": "Термобельё из 100% мериносовой шерсти. Антибактериальное, не пахнет...",
+        "full_text": "Термобельё из 100% мериносовой шерсти. Антибактериальное, не пахнет даже после 3 дней носки. Оптимальная температура использования: -20°C — +5°C.",
+        "metadata": {
+            "category": "одежда",
+            "price_range": "high",
+            "season": "winter",
+            "city": "Москва",
+            "semantic_tags": '["тепло", "долгий поход", "спорт"]'
+        },
+        "distance": 0.31,
+        "base_score": 0.763,
+        "bm25_score": 0.76,
+        "lexical_score": 0.71,
+        "final_score": 0.755,
+        "tags": ["тепло", "долгий поход", "спорт"]
+    },
+    {
+        "id": "doc_789",
+        "name": "Туристический термос 1L Arctic",
+        "text": "Сохраняет тепло 24 часа, холод — 48 часов. Ударопрочный корпус...",
+        "full_text": "Сохраняет тепло 24 часа, холод — 48 часов. Ударопрочный корпус из нержавеющей стали. Подходит для походов и автотуризма. Совместим с фильтрами воды.",
+        "metadata": {
+            "category": "снаряжение",
+            "price_range": "mid",
+            "season": "all",
+            "city": "Санкт-Петербург",
+            "semantic_tags": '["поход", "выживание", "зима"]'
+        },
+        "distance": 0.48,
+        "base_score": 0.676,
+        "bm25_score": 0.54,
+        "lexical_score": 0.62,
+        "final_score": 0.648,
+        "tags": ["поход", "выживание", "зима"]
+    }
+]
+
 
 async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -48,7 +108,8 @@ async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
         )
 
         # 2. RAG
-        rag_results = await rag_wrapper.search_raw(query=query)
+        # rag_results = await rag_wrapper.search_raw(query=query)
+        rag_results = MOCK_SEARCH_RESULTS
 
         if not rag_results:
             return _error_response(user_id, task_id, "Места не найдены")

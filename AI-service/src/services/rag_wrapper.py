@@ -35,4 +35,7 @@ class RAGWrapper:
         logger.info("RAG: executor shutdown")
 
 
-rag_wrapper = RAGWrapper()
+current_dir = Path(__file__).resolve().parent  # src/services/
+rag_db_path = current_dir.parents[2] / "rag" / "chroma_db"  # project_root/rag/chroma_db
+
+rag_wrapper = RAGWrapper(db_path=str(rag_db_path))

@@ -87,6 +87,33 @@ async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
     }
     """
 
+    '''
+    output
+    {
+          "user_id": user_id,
+          "task_id": task_id,
+          "status": "ok",
+          "output": [
+            {
+              "coordinates": "56.328552, 44.003185",
+              "description": "Кремль, Нижний Новгород"
+            },
+            {
+              "coordinates": "56.323207, 44.009519",
+              "description": "МТС Life hall, Нижний Новгород"
+            },
+            {
+              "coordinates": "56.315617, 44.007783",
+              "description": "Парк Кулибина, Нижний Новгород"
+            }
+          ],
+          "description": "Тестовый маршрут созданный вручную",
+          "time": 3.5,
+          "long": 45.5,
+          "advice": "Не забудьте зонтик"
+        }
+    '''
+
     user_id = data.get("user_id")
     task_id = data.get("task_id")
 
@@ -115,7 +142,7 @@ async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
             return _error_response(user_id, task_id, "Места не найдены")
 
         # 3. RAG -> points
-        points = convert_rag_results_to_output(rag_results)
+        points = convert_rag_results_to_output(rag_results) # ломается
         if not points:
             return _error_response(
                 user_id, task_id, "Не удалось получить точки с координатами"
@@ -133,30 +160,6 @@ async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
         # GigachatService уже возвращает:
         # { "user_id", "task_id", "output", "description", "time", "long", "advice" }
         route_json["status"] = "ok"
-
-        # route_json = {
-        #   "user_id": user_id,
-        #   "task_id": task_id,
-        #   "status": "ok",
-        #   "output": [
-        #     {
-        #       "coordinates": "56.328552, 44.003185",
-        #       "description": "Кремль, Нижний Новгород"
-        #     },
-        #     {
-        #       "coordinates": "56.323207, 44.009519",
-        #       "description": "МТС Life hall, Нижний Новгород"
-        #     },
-        #     {
-        #       "coordinates": "56.315617, 44.007783",
-        #       "description": "Парк Кулибина, Нижний Новгород"
-        #     }
-        #   ],
-        #   "description": "Тестовый маршрут созданный вручную",
-        #   "time": 3.5,
-        #   "long": 45.5,
-        #   "advice": "Не забудьте зонтик"
-        # }
 
         return route_json
 

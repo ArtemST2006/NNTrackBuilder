@@ -1,6 +1,7 @@
-# src/services/rag_utils.py
-
 from typing import List, Dict, Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def convert_rag_results_to_output(results: List[Dict[str, Any]]) -> List[Dict[str, str]]:
@@ -9,41 +10,53 @@ def convert_rag_results_to_output(results: List[Dict[str, Any]]) -> List[Dict[st
 
     [
       {"coordinates": "55.7558, 37.6173", "description": "Красная площадь, Москва"},
-      ...
     ]
     """
 
     points: List[Dict[str, str]] = []
 
-    for item in results:
-        meta = item.get("metadata", {}) or {}
+    for idx, item in enumerate(results, start=1):
+        """
+            ожидаемая структура item:
+            {
+                "name": ...,
+                "final_score": ...,
+                "metadata": {...},
+                "lat": ... (опционально),
+                "lon": ... (опционально),
+                "distance": ...
+            }
+        """
 
-        lat = meta.get("lat")
-        lon = meta.get("lon")
+        name = item.get("name")
+        meta = item.get("metadata") or {}
+        lat = item.get("lat", meta.get("lat"))
+        lon = item.get("lon", meta.get("lon"))
 
         if lat is None or lon is None:
-            # если нет координат — пропускаем
+            logger.warning(
+                "RAG: пропущен результат #%s без координат: name=%r, lat=%r, lon=%r, metadata_keys=%s",
+                idx,
+                name,
+                lat,
+                lon,
+                list(meta.keys()),
+            )
             continue
 
         coordinates = f"{lat}, {lon}"
 
-        name = meta.get("name") or item.get("name") or "Неизвестное место"
-        city = meta.get("city")
-        address = meta.get("address")
-
-        parts = [name]
-        if city:
-            parts.append(city)
-        if address:
-            parts.append(address)
-
-        description = ", ".join(parts)
-
         points.append(
             {
                 "coordinates": coordinates,
-                "description": description,
+                "description": name,
             }
         )
+
+    logger.info(
+        "RAG: конвертировано %s точек из %s входных результатов",
+        len(points),
+        len(results),
+    )
 
     return points

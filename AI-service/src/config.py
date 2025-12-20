@@ -9,3 +9,18 @@ USER_SERVICE_URL = "http://user-service:8001"
 STATISTIC_SERVICE_URL = "http://statistic-service:8002"
 
 MAX_WORKERS = int(os.getenv("MAX_WORKERS", "4"))
+
+
+# Ключ авторизации GigaChat (Authorization Key из ЛК, НЕ access_token)
+GIGACHAT_CREDENTIALS = os.getenv("GIGACHAT_CREDENTIALS")
+# GIGACHAT_CREDENTIALS = "MDE5YjJkM2UtZGIwYS03Zjc5LTliODQtYmJiNGRlYWNiZTBlOjEwZWY3ZGM0LTJkOWEtNGY5Yy1hMTdiLWMyMDc2OTQ1ZWNlYQ=="
+
+# Скоуп API
+GIGACHAT_SCOPE = os.getenv("GIGACHAT_SCOPE", "GIGACHAT_API_PERS")
+
+# Модель (опционально)
+GIGACHAT_MODEL = os.getenv("GIGACHAT_MODEL", "GigaChat-2")
+
+# Проверка сертификатов (для dev можно False, для prod лучше True)
+GIGACHAT_VERIFY_SSL_CERTS = os.getenv("GIGACHAT_VERIFY_SSL_CERTS", "False").lower() == "true"
+

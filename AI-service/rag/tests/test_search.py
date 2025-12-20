@@ -28,6 +28,7 @@ def main() -> None:
         print(f"chroma_db не найден по пути: {DB_PATH}")
         return
 
+
     try:
         searcher = HybridSearcher(db_path=str(DB_PATH))
     except Exception as e:

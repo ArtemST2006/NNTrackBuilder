@@ -2,7 +2,12 @@ import asyncio
 import logging
 import os
 import signal
+import sys
+from pathlib import Path
 from typing import Optional
+
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
 from src.kafka.producer import kafka_producer
 from src.kafka.consumer import kafka_consumer

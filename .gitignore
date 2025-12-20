@@ -46,6 +46,9 @@ venv.bak/
 *.log
 logs/
 
+# --- NixOS ---
+*.nix
+
 # --- Testing / Coverage ---
 .coverage
 .coverage.*

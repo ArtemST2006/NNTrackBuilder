@@ -1,10 +1,10 @@
+from typing import Dict, List, Optional, Tuple
 import json
 import re
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-
 import chromadb
-from sentence_transformers import SentenceTransformer
+import os
+from pathlib import Path
+
 
 
 class BM25Index:
@@ -78,7 +78,19 @@ class BM25Index:
         return ranked[:top_k]
 
 
+MODELS_CACHE = str(Path(__file__).parent / ".model_cache")
+MODEL_DIR = str(Path(MODELS_CACHE) / "models--DiTy--bi-encoder-russian-msmarco")
+
+
+os.environ['TRANSFORMERS_CACHE'] = MODELS_CACHE
+os.environ['HF_HOME'] = MODELS_CACHE
+os.environ['HF_HUB_OFFLINE'] = '1'  # Отключить скачивание с интернета
+print(MODELS_CACHE)
+
+from sentence_transformers import SentenceTransformer
+
 MODEL_NAME = "DiTy/bi-encoder-russian-msmarco"
+
 MIN_SCORE_SHORT_QUERY = 0.65
 MIN_SCORE_MEDIUM_QUERY = 0.4
 MIN_SCORE_LONG_QUERY = 0.45
@@ -111,16 +123,17 @@ QUERY_STOPWORDS = {
 
 class HybridSearcher:
 
-    def __init__(self, db_path: str = "./chroma_db"):
+    def __init__(self, db_path: Optional[str] = None):
+        db_path = str(Path(__file__).parent.parent / "chroma_db")
         self.client = chromadb.PersistentClient(path=db_path)
         try:
             self.collection = self.client.get_collection(name="places")
         except ValueError as e:
-            print("Ошибка: ", e)
+            print("Ошибка!: ", e)
             exit(1)
-
-        self.model = SentenceTransformer(MODEL_NAME)
+        self.model = SentenceTransformer(MODEL_DIR)
         self.doc_store: Dict[str, str] = {}
+
         self.metadata_store: Dict[str, Dict] = {}
         self._load_corpus()
         self.bm25_index = BM25Index(self.doc_store) if self.doc_store else None

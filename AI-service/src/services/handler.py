@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Any
 
-# from src.services.rag_wrapper import rag_wrapper
+from src.services.rag_wrapper import rag_wrapper
 from src.services.rag_utils import convert_rag_results_to_output
 from src.services.gigachat_service import GigachatService
 
@@ -113,8 +113,8 @@ async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
         )
 
         # 2. RAG
-        # rag_results = await rag_wrapper.search_raw(query=query)
-        rag_results = MOCK_SEARCH_RESULTS
+        rag_results = await rag_wrapper.search_raw(query=query)
+        # rag_results = MOCK_SEARCH_RESULTS
 
         if not rag_results:
             return _error_response(user_id, task_id, "Места не найдены")

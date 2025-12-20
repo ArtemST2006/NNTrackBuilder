@@ -1,5 +1,4 @@
 import json
-import time
 import traceback
 from pathlib import Path
 from typing import Dict, List
@@ -42,7 +41,7 @@ def create_embeddings(places: List[Dict], model_name: str = MODEL_NAME) -> np.nd
     print(f"\nЗагрузка {model_name}")
 
     try:
-        model = SentenceTransformer(model_name)
+        model = SentenceTransformer("./.model_cache")
 
     except Exception as e:
         print(f"Ошибка при загрузке модели: {e}")
@@ -80,7 +79,6 @@ def save_embeddings(embeddings: np.ndarray, output_file: str) -> None:
 
 def main():
     script_dir = Path(__file__).parent.parent
-
     DATA_FILE = (
         script_dir / "data" / "processed" / "places_with_updated_search_text.json"
     )

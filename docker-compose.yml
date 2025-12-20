@@ -96,6 +96,8 @@ services:
 #    depends_on:
 #      kafka:
 #        condition: service_healthy
+#    volumes: 
+#      - ./rag/scripts/.model_cache
 
   user-service:
     build: ./User-service

@@ -14,7 +14,8 @@ async def predict(data: AIRequest, user_id: int = Depends(get_current_user_id) )
     task_id = str(uuid.uuid4())
 
     message = {
-        "depends": "profile",
+        "depends": "profile", # можно выкинуть
+        "profile": "", # можно выкинуть
         "task_id": task_id,
         "user_id": user_id,
         "input_data": data.dict()

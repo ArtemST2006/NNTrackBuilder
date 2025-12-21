@@ -52,7 +52,7 @@ logs/
 *.nix
 
 # --- SentenceTransformer ---
-.model_cache
+AI-service/rag/scripts/.model_cache
 
 # --- Testing / Coverage ---
 .coverage

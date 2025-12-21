@@ -201,7 +201,6 @@ import { onMounted, onBeforeUnmount, ref, watch, nextTick } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { storeToRefs } from 'pinia'
 import { api } from '../services/http'
-// Leaflet убрали, будем грузить Яндекс динамически
 
 const auth = useAuthStore()
 const { socketStatus, socketMessages } = storeToRefs(auth)
@@ -217,10 +216,11 @@ const startMode = ref('geo')
 const loading = ref(false)
 const error = ref(null)
 const message = ref(null)
-// Храним ID текущей задачи, чтобы поймать ответ
 const currentTaskId = ref(null)
-// Данные результата для отображения
 const resultData = ref(null)
+
+// --- NEW: Переменная для хранения таймера ---
+const requestTimeoutId = ref(null)
 
 const interestOptions = [
   { id: 'cafes', label: 'Кофейни', icon: '☕' },
@@ -264,12 +264,16 @@ const addCustomInterest = () => {
 
 // Сброс к форме
 const resetToWizard = () => {
+  // --- NEW: Очищаем таймер при ручном сбросе ---
+  if (requestTimeoutId.value) clearTimeout(requestTimeoutId.value)
+
   resultData.value = null
   step.value = 1
   message.value = null
   error.value = null
   currentTaskId.value = null
-  // Очищаем карту
+  loading.value = false // На всякий случай сбрасываем лоадер
+
   if (mapInstance) {
     mapInstance.geoObjects.removeAll()
   }
@@ -304,37 +308,47 @@ const formatDate = (dateStr) => {
 }
 
 // --- Логика WebSocket Listener ---
-// Следим за сообщениями в сторе
 watch(socketMessages, (newMessages) => {
   if (!newMessages || newMessages.length === 0) return
 
-  // Берем последнее сообщение
   const lastMsg = newMessages[newMessages.length - 1]
 
-  // Если сообщение пришло как строка, парсим
   let data = lastMsg
   if (typeof lastMsg === 'string') {
     try {
       data = JSON.parse(lastMsg)
     } catch (e) {
-      // Это может быть системное сообщение или не JSON
       return
     }
   }
 
-  // Проверяем формат и task_id (если мы его ждем)
-  // Либо если просто пришел результат с типом output (зависит от вашего протокола)
-  if (data && data.task_id && data.output) {
-    // Если это текущая задача или мы просто хотим показывать входящие результаты
-    if (currentTaskId.value === data.task_id) {
-       loading.value = false
-       resultData.value = data // Переключаем экран
-       message.value = 'Маршрут построен!'
+  // Проверяем, относится ли сообщение к нашей текущей задаче
+  if (data && data.task_id && data.task_id === currentTaskId.value) {
 
-       // Рисуем на карте (nextTick чтобы убедиться что DOM обновился, хотя карта в отдельном блоке)
-       nextTick(() => {
-         drawRouteOnYandexMap(data.output)
-       })
+    // --- ВАРИАНТ 1: УСПЕХ (пришли данные output) ---
+    if (data.output) {
+      // 1. Останавливаем таймер
+      if (requestTimeoutId.value) clearTimeout(requestTimeoutId.value)
+
+      loading.value = false
+      resultData.value = data
+      message.value = 'Маршрут построен!'
+
+      nextTick(() => {
+        drawRouteOnYandexMap(data.output)
+      })
+    }
+
+    // --- ВАРИАНТ 2: ОШИБКА (пришел status: error) ---
+    else if (data.status === 'error') {
+      // 1. Останавливаем таймер
+      if (requestTimeoutId.value) clearTimeout(requestTimeoutId.value)
+
+      loading.value = false
+      // Показываем текст ошибки из сервера или дефолтный
+      error.value = data.error || 'Ошибка генерации маршрута'
+      message.value = null
+      currentTaskId.value = null // Сбрасываем ID задачи, чтобы можно было отправить снова
     }
   }
 }, { deep: true })
@@ -346,59 +360,78 @@ let mapInstance = null
 const initYandexMap = () => {
   ymaps.ready(() => {
     mapInstance = new ymaps.Map("yandex-map", {
-      center: [56.326887, 44.005986], // Дефолт (Нижний Новгород)
+      center: [56.326887, 44.005986],
       zoom: 12,
       controls: ['zoomControl', 'fullscreenControl']
     })
   })
 }
 
-// Функция отрисовки маршрута из ответа (JSON)
+// Функция построения реального маршрута через Yandex MultiRouter
 const drawRouteOnYandexMap = (places) => {
   if (!mapInstance || !window.ymaps) return
 
-  // Очищаем карту
+  // 1. Очищаем карту от старых маршрутов
   mapInstance.geoObjects.removeAll()
 
-  const routeCoordinates = []
+  // 2. Собираем координаты
+  const points = places.map(place =>
+    place.coordinates.split(',').map(s => parseFloat(s.trim()))
+  )
 
-  places.forEach(place => {
-    // Парсим координаты "56.328, 44.003" -> [56.328, 44.003]
-    const coords = place.coordinates.split(',').map(s => parseFloat(s.trim()))
-    routeCoordinates.push(coords)
-
-    // Создаем метку
-    const placemark = new ymaps.Placemark(coords, {
-      balloonContentHeader: place.description,
-      balloonContentBody: place.description,
-      // Плажка при наведении
-      hintContent: place.description
-    }, {
-      preset: 'islands#blueCircleDotIcon'
-    })
-
-    mapInstance.geoObjects.add(placemark)
+  // 3. Создаем маршрут
+  const multiRoute = new ymaps.multiRouter.MultiRoute({
+    referencePoints: points,
+    params: {
+      routingMode: 'pedestrian' // Пешеходный маршрут
+    }
+  }, {
+    boundsAutoApply: true, // Автозум
+    // Цвет линии маршрута
+    routeActiveStrokeColor: "#0000FF",
+    routeActiveStrokeWidth: 4,
+    // Скрываем стандартные метки (A, B...), так как мы их перенастроим ниже
+    wayPointVisible: true
   })
 
-  // Рисуем нитку (Polyline)
-  if (routeCoordinates.length > 1) {
-    const polyline = new ymaps.Polyline(routeCoordinates, {
-      hintContent: "Маршрут прогулки"
-    }, {
-      strokeColor: "#0000FF", // Синий цвет
-      strokeWidth: 4,
-      strokeOpacity: 0.8
-    })
-    mapInstance.geoObjects.add(polyline)
-  }
+  // 4. Настраиваем точки ПОСЛЕ того, как Яндекс их расставит
+  multiRoute.model.events.add('requestsuccess', function() {
+    const wayPoints = multiRoute.getWayPoints();
 
-  // Центрируем карту по маршруту
-  if (routeCoordinates.length > 0) {
-    mapInstance.setBounds(mapInstance.geoObjects.getBounds(), {
-      checkZoomRange: true,
-      zoomMargin: 50
-    })
-  }
+    // Проходимся по всем точкам маршрута
+    wayPoints.each((point, index) => {
+      const placeData = places[index];
+
+      if (placeData) {
+        // --- НАСТРОЙКА КОНТЕНТА ---
+        point.properties.set({
+          // Цифра внутри кружка (1, 2, 3...)
+          iconContent: index + 1,
+
+          // Подпись РЯДОМ с меткой (название места)
+          iconCaption: placeData.description,
+
+          // Текст при НАВЕДЕНИИ мыши (Hint)
+          hintContent: placeData.description,
+
+          // Текст при КЛИКЕ (Balloon)
+          balloonContentHeader: `Точка №${index + 1}`,
+          balloonContentBody: placeData.description
+        });
+
+        // --- НАСТРОЙКА ВНЕШНЕГО ВИДА ---
+        point.options.set({
+          // Используем стиль "Кружок", чтобы цифра поместилась внутри
+          // islands#blueCircleIcon - синий круг
+          // islands#redCircleIcon - красный круг (можно поменять цвет)
+          preset: 'islands#blueCircleIcon'
+        });
+      }
+    });
+  });
+
+  // 5. Добавляем на карту
+  mapInstance.geoObjects.add(multiRoute)
 }
 
 // --- Логика Геолокации ---
@@ -424,58 +457,36 @@ const onSubmit = async () => {
   error.value = null
   message.value = null
 
+  // --- NEW: Сбрасываем старый таймер если вдруг он есть ---
+  if (requestTimeoutId.value) clearTimeout(requestTimeoutId.value)
+
   try {
-    // 1. Если пользователь что-то печатал, но забыл нажать Enter — добавляем это сейчас
     if (customInterest.value.trim()) addCustomInterest()
 
-    // 2. Получаем координаты
     await fillCoordsFromGeolocation()
 
-    // 3. ФОРМИРУЕМ СПИСОК КАТЕГОРИЙ ДЛЯ ОТПРАВКИ
     let finalCategories = []
-
-    // Проверяем, выбрана ли карточка "Все категории" (id: 'all')
     const isAllSelected = category.value.includes('all')
 
     if (isAllSelected) {
-      // ЛОГИКА ДЛЯ "ВСЕ КАТЕГОРИИ":
-
-      // А) Берем все стандартные варианты из interestOptions
-      // Фильтруем, чтобы не брать саму кнопку "all"
       const standardLabels = interestOptions
         .filter(opt => opt.id !== 'all')
-        .map(opt => opt.label) // <-- ВОТ ЗДЕСЬ БЕРЕТСЯ РУССКОЕ НАЗВАНИЕ (например "Кофейни")
+        .map(opt => opt.label)
 
-      // Б) Ищем кастомные интересы, которые ввел пользователь (их нет в interestOptions)
       const customInputValues = category.value.filter(val =>
         val !== 'all' && !interestOptions.some(opt => opt.id === val)
       )
-
-      // Объединяем: Все стандартные (на русском) + всё, что ввел юзер
       finalCategories = [...standardLabels, ...customInputValues]
 
     } else {
-      // ЛОГИКА ОБЫЧНОГО ВЫБОРА:
-
       finalCategories = category.value.map(selectedId => {
-        // Ищем объект опции, у которого id совпадает с тем, что выбрал юзер
         const option = interestOptions.find(opt => opt.id === selectedId)
-
-        if (option) {
-          // Если нашли (например id='cafes'), возвращаем label ('Кофейни')
-          return option.label
-        } else {
-          // Если не нашли в списке (значит это ввел пользователь вручную), возвращаем как есть
-          return selectedId
-        }
+        return option ? option.label : selectedId
       })
     }
 
-    // Для отладки можно раскомментировать эту строку и посмотреть в консоль браузера перед отправкой
-    // console.log('Отправляем на сервер:', finalCategories)
-
     const payload = {
-      category: finalCategories, // Сюда уйдет массив ['Кофейни', 'Парки'] или ['Стрит-арт']
+      category: finalCategories,
       time: time.value,
       cords: cords.value,
       place: place.value
@@ -488,19 +499,28 @@ const onSubmit = async () => {
     currentTaskId.value = resp.data.task_id
     message.value = `Запрос принят. Генерация маршрута...`
 
+    // --- NEW: Запускаем таймер на 2 минуты (120 000 мс) ---
+    requestTimeoutId.value = setTimeout(() => {
+      // Код, который выполнится, если время вышло
+      loading.value = false
+      error.value = 'Время ожидания истекло (2 мин). Сервер перегружен или недоступен.'
+      message.value = null
+      currentTaskId.value = null // Перестаем ждать этот task_id
+    }, 120000)
+
   } catch (err) {
     console.error(err)
     error.value = err.response?.data?.detail || 'Ошибка при отправке запроса'
     loading.value = false
+    // Если произошла ошибка при POST запросе, таймер не нужен
+    if (requestTimeoutId.value) clearTimeout(requestTimeoutId.value)
   }
 }
 
 onMounted(() => {
-  // Динамическая загрузка скрипта Яндекс Карт
   if (!window.ymaps) {
     const script = document.createElement('script')
-    // Вставьте API KEY если есть, иначе оставьте пустым для dev-режима
-    script.src = "https://api-maps.yandex.ru/2.1/?apikey=&lang=ru_RU"
+    script.src = "https://api-maps.yandex.ru/2.1/?apikey=025b0277-5f19-4329-9ce5-76abf3790103&lang=ru_RU"
     script.onload = initYandexMap
     document.head.appendChild(script)
   } else {
@@ -516,6 +536,10 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (mapInstance) {
     mapInstance.destroy()
+  }
+  // --- NEW: Очистка таймера при удалении компонента ---
+  if (requestTimeoutId.value) {
+    clearTimeout(requestTimeoutId.value)
   }
 })
 </script>

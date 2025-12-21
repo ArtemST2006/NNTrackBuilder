@@ -354,51 +354,54 @@ const initYandexMap = () => {
 }
 
 // Функция отрисовки маршрута из ответа (JSON)
+// Функция построения реального маршрута через Yandex MultiRouter
 const drawRouteOnYandexMap = (places) => {
   if (!mapInstance || !window.ymaps) return
 
-  // Очищаем карту
+  // 1. Очищаем карту
   mapInstance.geoObjects.removeAll()
 
-  const routeCoordinates = []
+  // 2. Собираем только массив координат: [[56.1, 44.1], [56.2, 44.2], ...]
+  // Это самый безопасный формат, который не вызывает ошибок
+  const points = places.map(place =>
+    place.coordinates.split(',').map(s => parseFloat(s.trim()))
+  )
 
-  places.forEach(place => {
-    // Парсим координаты "56.328, 44.003" -> [56.328, 44.003]
-    const coords = place.coordinates.split(',').map(s => parseFloat(s.trim()))
-    routeCoordinates.push(coords)
-
-    // Создаем метку
-    const placemark = new ymaps.Placemark(coords, {
-      balloonContentHeader: place.description,
-      balloonContentBody: place.description,
-      // Плажка при наведении
-      hintContent: place.description
-    }, {
-      preset: 'islands#blueCircleDotIcon'
-    })
-
-    mapInstance.geoObjects.add(placemark)
+  // 3. Создаем маршрут
+  const multiRoute = new ymaps.multiRouter.MultiRoute({
+    referencePoints: points,
+    params: {
+      routingMode: 'pedestrian' // Пешеходный маршрут
+    }
+  }, {
+    boundsAutoApply: true, // Автозум
+    routeActiveStrokeColor: "#0000FF", // Цвет линии
+    routeActiveStrokeWidth: 4
   })
 
-  // Рисуем нитку (Polyline)
-  if (routeCoordinates.length > 1) {
-    const polyline = new ymaps.Polyline(routeCoordinates, {
-      hintContent: "Маршрут прогулки"
-    }, {
-      strokeColor: "#0000FF", // Синий цвет
-      strokeWidth: 4,
-      strokeOpacity: 0.8
-    })
-    mapInstance.geoObjects.add(polyline)
-  }
+  // 4. ВАЖНО: Добавляем подписи ПОСЛЕ того, как Яндекс обработает координаты
+  multiRoute.model.events.add('requestsuccess', function() {
+    // Получаем список точек маршрута (WayPoints)
+    const wayPoints = multiRoute.getWayPoints();
 
-  // Центрируем карту по маршруту
-  if (routeCoordinates.length > 0) {
-    mapInstance.setBounds(mapInstance.geoObjects.getBounds(), {
-      checkZoomRange: true,
-      zoomMargin: 50
-    })
-  }
+    // Проходимся по всем точкам и проставляем описания из наших данных
+    wayPoints.each((point, index) => {
+      // Берем данные из исходного массива places по индексу
+      const placeData = places[index];
+      if (placeData) {
+        point.properties.set({
+          // Текст рядом с точкой (например: "1. Кремль")
+          iconCaption: (index + 1) + ". " + placeData.description,
+          // Текст внутри балуна при клике
+          balloonContentHeader: placeData.description,
+          balloonContentBody: placeData.description
+        });
+      }
+    });
+  });
+
+  // 5. Добавляем на карту
+  mapInstance.geoObjects.add(multiRoute)
 }
 
 // --- Логика Геолокации ---
@@ -500,7 +503,7 @@ onMounted(() => {
   if (!window.ymaps) {
     const script = document.createElement('script')
     // Вставьте API KEY если есть, иначе оставьте пустым для dev-режима
-    script.src = "https://api-maps.yandex.ru/2.1/?apikey=&lang=ru_RU"
+    script.src = "https://api-maps.yandex.ru/2.1/?apikey=025b0277-5f19-4329-9ce5-76abf3790103&lang=ru_RU"
     script.onload = initYandexMap
     document.head.appendChild(script)
   } else {

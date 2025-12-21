@@ -7,7 +7,7 @@ sys.path.append(str(ROOT))
 from scripts.search import HybridSearcher
 
 QUERIES = [
-    "парк",
+    "парки",
     "вкусно поесть",
     "история",
     "музей",

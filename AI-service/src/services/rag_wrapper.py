@@ -14,7 +14,7 @@ class RAGWrapper:
     def __init__(self, db_path: Optional[str] = None):
         if db_path is None:
             project_root = Path(__file__).resolve().parents[2]
-            db_path = str(project_root / "chroma_db")
+            db_path = str(project_root / "rag" / "chroma_db")
 
         logger.info(f"RAG: init HybridSearcher with db_path={db_path}")
         self._searcher = HybridSearcher(db_path=str(db_path))
@@ -35,7 +35,4 @@ class RAGWrapper:
         logger.info("RAG: executor shutdown")
 
 
-current_dir = Path(__file__).resolve().parent  # src/services/
-rag_db_path = current_dir.parents[2] / "rag" / "chroma_db"  # project_root/rag/chroma_db
-
-rag_wrapper = RAGWrapper(db_path=str(rag_db_path))
+rag_wrapper = RAGWrapper()

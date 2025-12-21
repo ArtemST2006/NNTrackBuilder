@@ -1,5 +1,5 @@
 import json
-import time
+import os
 import traceback
 from pathlib import Path
 from typing import Dict, List
@@ -8,7 +8,13 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 MODEL_NAME = "DiTy/bi-encoder-russian-msmarco"
+MODELS_CACHE = str(Path(__file__).parent / ".model_cache")
+MODEL_DIR = str(Path(MODELS_CACHE) / "models--DiTy--bi-encoder-russian-msmarco")
 BATCH_SIZE = 32
+
+os.environ["TRANSFORMERS_CACHE"] = MODELS_CACHE
+os.environ["HF_HOME"] = MODELS_CACHE
+os.environ["HF_HUB_OFFLINE"] = "1"
 
 
 def load_places_data(data_file: str) -> List[Dict]:
@@ -42,7 +48,7 @@ def create_embeddings(places: List[Dict], model_name: str = MODEL_NAME) -> np.nd
     print(f"\nЗагрузка {model_name}")
 
     try:
-        model = SentenceTransformer(model_name)
+        model = SentenceTransformer(MODEL_DIR)
 
     except Exception as e:
         print(f"Ошибка при загрузке модели: {e}")
@@ -80,7 +86,6 @@ def save_embeddings(embeddings: np.ndarray, output_file: str) -> None:
 
 def main():
     script_dir = Path(__file__).parent.parent
-
     DATA_FILE = (
         script_dir / "data" / "processed" / "places_with_updated_search_text.json"
     )

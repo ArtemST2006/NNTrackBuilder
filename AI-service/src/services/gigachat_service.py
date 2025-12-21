@@ -43,6 +43,11 @@ class GigachatService:
         "}\n"
         "5. Не добавляй никаких комментариев, пояснений или текста за пределами JSON.\n"
     )
+    REPAIR_INSTRUCTION = (
+        "Ты — валидатор JSON.\n"
+        "Исправь синтаксис JSON без изменения смысла, структуры и значений.\n"
+        "Верни СТРОГО один JSON-объект без любого дополнительного текста.\n"
+    )
 
     def __init__(self) -> None:
         if not GIGACHAT_CREDENTIALS:
@@ -89,6 +94,35 @@ class GigachatService:
             f"{points_block}\n\n"
             "Ответ должен быть СТРОГО в формате одного JSON-объекта, как описано в system-инструкции."
         )
+
+    @staticmethod
+    def _build_repair_prompt(raw_text: str) -> str:
+        return (
+            "Ниже дан JSON с ошибками. Исправь его и верни только валидный JSON:\n\n"
+            f"{raw_text}"
+        )
+
+    async def _call_gigachat(self, messages: List[Dict[str, str]]) -> str:
+        giga = GigaChat(
+            credentials=GIGACHAT_CREDENTIALS,
+            verify_ssl_certs=GIGACHAT_VERIFY_SSL_CERTS,
+            scope=GIGACHAT_SCOPE,
+            model=GIGACHAT_MODEL or None,
+            async_mode=True,
+        )
+
+        async with giga as client:
+            try:
+                response = await client.achat(messages=messages)
+            except TypeError:
+                response = await client.achat({"messages": messages})
+            except Exception as e:
+                logger.exception("Ошибка при обращении к GigaChat: %s", e)
+                raise
+
+        raw_content = response.choices[0].message.content
+        logger.debug("Ответ GigaChat (сырое содержимое): %s", raw_content)
+        return raw_content
 
     @staticmethod
     def _extract_json_object(text: str) -> Dict[str, Any]:
@@ -206,26 +240,7 @@ class GigachatService:
 
         start_time = time.monotonic()
 
-        # Создаём клиента на запрос: безопаснее для конкурентного async.
-        giga = GigaChat(
-            credentials=GIGACHAT_CREDENTIALS,
-            verify_ssl_certs=GIGACHAT_VERIFY_SSL_CERTS,
-            scope=GIGACHAT_SCOPE,
-            model=GIGACHAT_MODEL or None,
-            async_mode=True,
-        )
-
-        # ВАЖНО: у разных версий SDK сигнатуры могут отличаться.
-        # Здесь используем самый “типичный” для SDK подход: передаём messages именованным аргументом.
-        async with giga as client:
-            try:
-                response = await client.achat(messages=messages)
-            except TypeError:
-                # Фоллбек: некоторые версии принимают один dict как payload
-                response = await client.achat({"messages": messages})
-            except Exception as e:
-                logger.exception("Ошибка при обращении к GigaChat: %s", e)
-                raise
+        raw_content = await self._call_gigachat(messages)
 
         elapsed = time.monotonic() - start_time
         logger.info(
@@ -235,10 +250,18 @@ class GigachatService:
             elapsed,
         )
 
-        raw_content = response.choices[0].message.content
-        logger.debug("Ответ GigaChat (сырое содержимое): %s", raw_content)
-
-        data = self._extract_json_object(raw_content)
+        try:
+            data = self._extract_json_object(raw_content)
+        except ValueError as e:
+            logger.warning(
+                "JSON parse failed, retrying with repair prompt: %s", e
+            )
+            repair_messages = [
+                {"role": "system", "content": self.REPAIR_INSTRUCTION},
+                {"role": "user", "content": self._build_repair_prompt(raw_content)},
+            ]
+            repaired_content = await self._call_gigachat(repair_messages)
+            data = self._extract_json_object(repaired_content)
         data = self._validate_and_normalize_output(
             data,
             input_points=points,

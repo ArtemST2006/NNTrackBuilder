@@ -26,7 +26,7 @@ async def test_handle_message_ok(monkeypatch):
     }
 
     # --- моки ---
-    async def fake_search_raw(query: str):
+    async def fake_search_raw(query: str, **kwargs):
         assert isinstance(query, str)
         # проверим, что категории склеились в query
         assert "музеи" in query and "парки" in query
@@ -78,7 +78,7 @@ async def test_handle_message_rag_returns_empty(monkeypatch):
     """
     import src.services.handler as h
 
-    async def fake_search_raw(query: str):
+    async def fake_search_raw(query: str, **kwargs):
         return []
 
     monkeypatch.setattr(h.rag_wrapper, "search_raw", fake_search_raw)
@@ -100,7 +100,7 @@ async def test_handle_message_convert_returns_empty(monkeypatch):
     """
     import src.services.handler as h  # <- поменяй на свой реальный путь модуля
 
-    async def fake_search_raw(query: str):
+    async def fake_search_raw(query: str, **kwargs):
         return [{"id": "doc-1"}]
 
     def fake_convert(rag_results):
@@ -122,7 +122,7 @@ async def test_handle_message_exception_in_gigachat(monkeypatch):
     """
     import src.services.handler as h  # <- поменяй на свой реальный путь модуля
 
-    async def fake_search_raw(query: str):
+    async def fake_search_raw(query: str, **kwargs):
         return [{"id": "doc-1"}]
 
     def fake_convert(rag_results):
@@ -148,7 +148,7 @@ async def test_handle_message_city_hint_falls_back_to_cords(monkeypatch):
     """
     import src.services.handler as h  # <- поменяй на свой реальный путь модуля
 
-    async def fake_search_raw(query: str):
+    async def fake_search_raw(query: str, **kwargs):
         return [{"id": "doc-1"}]
 
     def fake_convert(rag_results):

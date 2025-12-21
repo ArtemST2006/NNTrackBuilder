@@ -1,13 +1,35 @@
 import logging
+import subprocess
 from typing import Dict, Any
 
-# from src.services.rag_wrapper import rag_wrapper
+from src.services.rag_wrapper import rag_wrapper
 from src.services.rag_utils import convert_rag_results_to_output
 from src.services.gigachat_service import GigachatService
 
 logger = logging.getLogger(__name__)
 
 gigachat = GigachatService()
+
+
+# def _parse_coords(value):
+#     if not value:
+#         return None, None
+#     if isinstance(value, (list, tuple)) and len(value) >= 2:
+#         parts = value[:2]
+#     elif isinstance(value, str):
+#         parts = value.split(",")
+#     else:
+#         return None, None
+
+#     if len(parts) < 2:
+#         return None, None
+
+#     try:
+#         lat = float(str(parts[0]).strip().replace(",", "."))
+#         lon = float(str(parts[1]).strip().replace(",", "."))
+#         return lat, lon
+#     except ValueError:
+#         return None, None
 
 MOCK_SEARCH_RESULTS = [
     {
@@ -113,8 +135,8 @@ async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
         )
 
         # 2. RAG
-        # rag_results = await rag_wrapper.search_raw(query=query)
-        rag_results = MOCK_SEARCH_RESULTS
+        rag_results = await rag_wrapper.search_raw(query=query)
+        # rag_results = MOCK_SEARCH_RESULTS
 
         if not rag_results:
             return _error_response(user_id, task_id, "Места не найдены")

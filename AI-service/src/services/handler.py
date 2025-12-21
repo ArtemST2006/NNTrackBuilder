@@ -10,6 +10,27 @@ logger = logging.getLogger(__name__)
 
 gigachat = GigachatService()
 
+
+# def _parse_coords(value):
+#     if not value:
+#         return None, None
+#     if isinstance(value, (list, tuple)) and len(value) >= 2:
+#         parts = value[:2]
+#     elif isinstance(value, str):
+#         parts = value.split(",")
+#     else:
+#         return None, None
+
+#     if len(parts) < 2:
+#         return None, None
+
+#     try:
+#         lat = float(str(parts[0]).strip().replace(",", "."))
+#         lon = float(str(parts[1]).strip().replace(",", "."))
+#         return lat, lon
+#     except ValueError:
+#         return None, None
+
 MOCK_SEARCH_RESULTS = [
     {
         "id": "101",

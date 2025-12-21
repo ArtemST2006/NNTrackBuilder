@@ -4,6 +4,7 @@ import re
 import chromadb
 import os
 from pathlib import Path
+import math
 
 
 
@@ -91,15 +92,62 @@ from sentence_transformers import SentenceTransformer
 
 MODEL_NAME = "DiTy/bi-encoder-russian-msmarco"
 
-MIN_SCORE_SHORT_QUERY = 0.65
-MIN_SCORE_MEDIUM_QUERY = 0.4
-MIN_SCORE_LONG_QUERY = 0.45
-MAX_DISTANCE_SHORT_QUERY = 0.9
-MAX_DISTANCE_MEDIUM_QUERY = 0.95
-MAX_DISTANCE_LONG_QUERY = 1.1
+MIN_SCORE_SHORT_QUERY = 0.6
+MIN_SCORE_MEDIUM_QUERY = 0.35
+MIN_SCORE_LONG_QUERY = 0.4
+MAX_DISTANCE_SHORT_QUERY = 0.95
+MAX_DISTANCE_MEDIUM_QUERY = 1.0
+MAX_DISTANCE_LONG_QUERY = 1.15
 LEXICAL_WEIGHT_SHORT_QUERY = 0.6
 LEXICAL_WEIGHT_MEDIUM_QUERY = 0.4
 LEXICAL_WEIGHT_LONG_QUERY = 0.3
+GEO_DISTANCE_WEIGHT = 0.1
+GEO_DISTANCE_SCALE_KM = 20.0
+
+SERVICE_CENTER_LAT = 56.320409
+SERVICE_CENTER_LON = 44.001358
+
+SERVICE_RADIUS_KM = 50.0
+RU_SUFFIXES = (
+    "иями",
+    "ями",
+    "ами",
+    "ях",
+    "ах",
+    "ов",
+    "ев",
+    "ей",
+    "ам",
+    "ям",
+    "ом",
+    "ем",
+    "ою",
+    "ею",
+    "ую",
+    "юю",
+    "ая",
+    "яя",
+    "ое",
+    "ее",
+    "ый",
+    "ий",
+    "ой",
+    "ые",
+    "ие",
+    "ых",
+    "их",
+    "ым",
+    "им",
+    "а",
+    "я",
+    "ы",
+    "и",
+    "о",
+    "е",
+    "у",
+    "ю",
+    "ь",
+)
 QUERY_STOPWORDS = {
     "и",
     "в",
@@ -124,14 +172,39 @@ QUERY_STOPWORDS = {
 class HybridSearcher:
 
     def __init__(self, db_path: Optional[str] = None):
-        db_path = str(Path(__file__).parent.parent / "chroma_db")
+        if db_path is None:
+            db_path = str(Path(__file__).parent.parent / "chroma_db")
+        db_path_value = Path(db_path)
+        print(
+            f"HybridSearcher: db_path={db_path_value} exists={db_path_value.exists()}"
+        )
         self.client = chromadb.PersistentClient(path=db_path)
+        try:
+            collections = self.client.list_collections()
+            collection_names = [c.name for c in collections]
+            print(f"HybridSearcher: collections={collection_names}")
+        except Exception as e:
+            print(f"HybridSearcher: failed to list collections: {e}")
         try:
             self.collection = self.client.get_collection(name="places")
         except ValueError as e:
+            try:
+                collections = self.client.list_collections()
+                collection_names = [c.name for c in collections]
+                print(
+                    f"HybridSearcher: missing collection 'places'; available={collection_names}"
+                )
+            except Exception as e2:
+                print(f"HybridSearcher: failed to list collections after error: {e2}")
             print("Ошибка!: ", e)
             exit(1)
-        self.model = SentenceTransformer(MODEL_DIR)
+        try:
+            print(f"Loading transformer model: {MODEL_NAME}")
+            self.model = SentenceTransformer(MODEL_DIR)
+            print("Transformer model loaded.")
+        except Exception as e:
+            print(f"Failed to load transformer model: {e}")
+            raise
         self.doc_store: Dict[str, str] = {}
 
         self.metadata_store: Dict[str, Dict] = {}
@@ -162,6 +235,63 @@ class HybridSearcher:
     def tokenize_query(self, query: str) -> List[str]:
         tokens = re.findall(r"[\w-]+", query.lower(), flags=re.UNICODE)
         return [t for t in tokens if len(t) >= 2 and t not in QUERY_STOPWORDS]
+
+    def _normalize_token(self, token: str) -> str:
+        normalized = token.lower().replace("ё", "е")
+        if len(normalized) <= 3:
+            return normalized
+        for suffix in RU_SUFFIXES:
+            if normalized.endswith(suffix):
+                stem = normalized[: -len(suffix)]
+                if len(stem) >= 3:
+                    return stem
+        return normalized
+
+    def _parse_coordinate(self, value: Optional[object]) -> Optional[float]:
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            cleaned = value.strip()
+            if not cleaned:
+                return None
+            try:
+                return float(cleaned.replace(",", "."))
+            except ValueError:
+                return None
+        return None
+
+    def _get_place_coords(self, metadata: Dict) -> Optional[Tuple[float, float]]:
+        lat = self._parse_coordinate(metadata.get("lat"))
+        if lat is None:
+            lat = self._parse_coordinate(metadata.get("latitude"))
+
+        lon = self._parse_coordinate(metadata.get("lon"))
+        if lon is None:
+            lon = self._parse_coordinate(metadata.get("lng"))
+        if lon is None:
+            lon = self._parse_coordinate(metadata.get("longitude"))
+
+        if lat is None or lon is None:
+            return None
+        if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+            return None
+        return lat, lon
+
+    def _haversine_km(
+        self, lat1: float, lon1: float, lat2: float, lon2: float
+    ) -> float:
+        r = 6371.0
+        phi1 = math.radians(lat1)
+        phi2 = math.radians(lat2)
+        d_phi = math.radians(lat2 - lat1)
+        d_lambda = math.radians(lon2 - lon1)
+        a = (
+            math.sin(d_phi / 2.0) ** 2
+            + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2.0) ** 2
+        )
+        return 2.0 * r * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
 
     def _load_corpus(self, batch_size: int = 500) -> None:
         total = self.collection.count()
@@ -205,14 +335,29 @@ class HybridSearcher:
         haystack = " ".join(str(f).lower() for f in fields if f)
         unique_tokens = set(tokens)
         words = set(re.findall(r"[\w-]+", haystack, flags=re.UNICODE))
+        normalized_words = {self._normalize_token(word) for word in words if word}
+        prefixes_4 = {word[:4] for word in words if len(word) >= 4}
+        prefixes_5 = {word[:5] for word in words if len(word) >= 5}
+        normalized_prefixes_4 = {
+            word[:4] for word in normalized_words if len(word) >= 4
+        }
+        normalized_prefixes_5 = {
+            word[:5] for word in normalized_words if len(word) >= 5
+        }
         matches = 0
         for token in unique_tokens:
-            if token in haystack:
+            normalized_token = self._normalize_token(token)
+            if token in words or normalized_token in normalized_words:
                 matches += 1
                 continue
-            if len(token) >= 5:
-                stem = token[:5]
-                if any(word.startswith(stem) for word in words):
+            if len(normalized_token) >= 5:
+                stem = normalized_token[:5]
+                if stem in prefixes_5 or stem in normalized_prefixes_5:
+                    matches += 1
+                    continue
+            if len(normalized_token) >= 4:
+                stem = normalized_token[:4]
+                if stem in prefixes_4 or stem in normalized_prefixes_4:
                     matches += 1
         return matches / len(unique_tokens)
 
@@ -276,6 +421,8 @@ class HybridSearcher:
             price_ranges: Optional[List[str]] = None,
             seasons: Optional[List[str]] = None,
             city: Optional[str] = None,
+            user_lat: Optional[float] = None,
+            user_lon: Optional[float] = None,
             min_score: Optional[float] = None,
             max_distance: Optional[float] = None,
     ) -> List[Dict]:
@@ -292,6 +439,22 @@ class HybridSearcher:
         effective_max_distance = self.get_effective_max_distance(query, max_distance)
         query_tokens = self.tokenize_query(query)
         lexical_weight = self.get_lexical_weight(len(query_tokens))
+        user_lat_value = self._parse_coordinate(user_lat)
+        user_lon_value = self._parse_coordinate(user_lon)
+        if (
+            user_lat_value is None
+            or user_lon_value is None
+            or not (-90.0 <= user_lat_value <= 90.0)
+            or not (-180.0 <= user_lon_value <= 180.0)
+        ):
+            user_lat_value = SERVICE_CENTER_LAT
+            user_lon_value = SERVICE_CENTER_LON
+        user_has_coords = True
+        service_distance_km = self._haversine_km(
+            user_lat_value, user_lon_value, SERVICE_CENTER_LAT, SERVICE_CENTER_LON
+        )
+        if service_distance_km > SERVICE_RADIUS_KM:
+            return []
 
         where_filter = self.build_where_filter(
             search_categories=search_categories,
@@ -375,9 +538,28 @@ class HybridSearcher:
             base_score = result.get("base_score", 0.0)
             bm25_score = result.get("bm25_score", 0.0)
             lexical_score = self.compute_lexical_score(result, query_tokens)
-            final_score = (1.0 - lexical_weight) * base_score + lexical_weight * max(
+            main_score = (1.0 - lexical_weight) * base_score + lexical_weight * max(
                 bm25_score, lexical_score
             )
+            geo_distance_km = None
+            geo_score = None
+            if user_has_coords:
+                coords = self._get_place_coords(result.get("metadata", {}))
+                if coords:
+                    geo_distance_km = self._haversine_km(
+                        user_lat_value, user_lon_value, coords[0], coords[1]
+                    )
+                    geo_score = 1.0 / (1.0 + geo_distance_km / GEO_DISTANCE_SCALE_KM)
+
+            if geo_score is not None:
+                final_score = (1.0 - GEO_DISTANCE_WEIGHT) * main_score + (
+                    GEO_DISTANCE_WEIGHT * geo_score
+                )
+            else:
+                final_score = main_score
+
+            result["geo_distance_km"] = geo_distance_km
+            result["geo_score"] = geo_score
             result["final_score"] = final_score
             scored_results.append(result)
 

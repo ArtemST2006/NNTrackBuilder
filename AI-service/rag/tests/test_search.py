@@ -20,7 +20,7 @@ QUERIES = [
 ]
 
 DB_PATH = ROOT / "chroma_db"
-N_RESULTS = 5
+N_RESULTS = 10
 
 
 def main() -> None:

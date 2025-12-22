@@ -29,7 +29,8 @@ class BM25Index:
         doc_freqs: Dict[str, int] = {}
 
         for doc_id, text in self.documents.items():
-            tokens = re.findall(r"[\w-]+", text.lower(), flags=re.UNICODE)
+            tokens = [normalize_token(tok) for tok in re.findall(r"[\w-]+", text.lower(), flags=re.UNICODE) 
+          if len(tok) >= 2]
             total_length += len(tokens)
             term_counts: Dict[str, int] = {}
             for tok in tokens:
@@ -169,6 +170,29 @@ QUERY_STOPWORDS = {
 }
 
 
+def normalize_token(token: str) -> str:
+    normalized = token.lower().replace("ё", "е")
+    
+    if len(normalized) <= 2:
+        return normalized
+    
+    plural_endings = ["и", "ы", "а", "я", "ь", "ья", "ьи", "ые", "ями", "ами"]
+    for ending in plural_endings:
+        if normalized.endswith(ending):
+            stem = normalized[:-len(ending)]
+            if len(stem) >= 2:
+                return stem
+    
+    for suffix in RU_SUFFIXES:
+        if normalized.endswith(suffix):
+            stem = normalized[:-len(suffix)]
+            if len(stem) >= 2:
+                return stem
+    
+    return normalized
+
+
+
 class HybridSearcher:
 
     def __init__(self, db_path: Optional[str] = None):
@@ -224,6 +248,8 @@ class HybridSearcher:
             "kids": "для детей",
         }
 
+
+
     def parse_tags_from_metadata(self, semantic_tags_str: str) -> List[str]:
         try:
             if isinstance(semantic_tags_str, list):
@@ -233,19 +259,10 @@ class HybridSearcher:
             return []
 
     def tokenize_query(self, query: str) -> List[str]:
-        tokens = re.findall(r"[\w-]+", query.lower(), flags=re.UNICODE)
+        tokens = [normalize_token(tok) for tok in re.findall(r"[\w-]+", query.lower(), flags=re.UNICODE) 
+          if len(tok) >= 2]
+        
         return [t for t in tokens if len(t) >= 2 and t not in QUERY_STOPWORDS]
-
-    def _normalize_token(self, token: str) -> str:
-        normalized = token.lower().replace("ё", "е")
-        if len(normalized) <= 3:
-            return normalized
-        for suffix in RU_SUFFIXES:
-            if normalized.endswith(suffix):
-                stem = normalized[: -len(suffix)]
-                if len(stem) >= 3:
-                    return stem
-        return normalized
 
     def _parse_coordinate(self, value: Optional[object]) -> Optional[float]:
         if value is None:
@@ -335,7 +352,7 @@ class HybridSearcher:
         haystack = " ".join(str(f).lower() for f in fields if f)
         unique_tokens = set(tokens)
         words = set(re.findall(r"[\w-]+", haystack, flags=re.UNICODE))
-        normalized_words = {self._normalize_token(word) for word in words if word}
+        normalized_words = {normalize_token(word) for word in words if word}
         prefixes_4 = {word[:4] for word in words if len(word) >= 4}
         prefixes_5 = {word[:5] for word in words if len(word) >= 5}
         normalized_prefixes_4 = {
@@ -346,7 +363,7 @@ class HybridSearcher:
         }
         matches = 0
         for token in unique_tokens:
-            normalized_token = self._normalize_token(token)
+            normalized_token = normalize_token(token)
             if token in words or normalized_token in normalized_words:
                 matches += 1
                 continue
@@ -364,7 +381,8 @@ class HybridSearcher:
     def get_effective_min_score(self, query: str, min_score: Optional[float]) -> float:
         if min_score is not None:
             return min_score
-        tokens = re.findall(r"[\w-]+", query.lower(), flags=re.UNICODE)
+        tokens = [normalize_token(tok) for tok in re.findall(r"[\w-]+", query.lower(), flags=re.UNICODE) 
+          if len(tok) >= 2]
         token_count = len(tokens)
         if token_count <= 2:
             return MIN_SCORE_SHORT_QUERY
@@ -377,7 +395,8 @@ class HybridSearcher:
     ) -> float:
         if max_distance is not None:
             return max_distance
-        tokens = re.findall(r"[\w-]+", query.lower(), flags=re.UNICODE)
+        tokens = [normalize_token(tok) for tok in re.findall(r"[\w-]+", query.lower(), flags=re.UNICODE) 
+          if len(tok) >= 2]
         token_count = len(tokens)
         if token_count <= 2:
             return MAX_DISTANCE_SHORT_QUERY

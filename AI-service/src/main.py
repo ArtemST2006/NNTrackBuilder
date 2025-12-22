@@ -30,7 +30,7 @@ class Service:
 
         logger.info("Starting Kafka consumer...")
         consumer_task = asyncio.create_task(
-            kafka_consumer.start(_rag), name="kafka-consumer"
+            kafka_consumer.start(self._rag), name="kafka-consumer"
         )
         self._tasks.append(consumer_task)
         logger.info("Kafka consumer started.")

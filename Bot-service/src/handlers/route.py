@@ -19,11 +19,51 @@ from utils.keyboards import (
 router = Router()
 logger = logging.getLogger(__name__)
 
-PRESET_INTERESTS = {
-    "☕ Кофейни", "🎨 Стрит-арт", "🏛️ Музеи",
-    "🌅 Панорамы", "🏛️ Архитектура", "🌳 Парки", "🛍️ Магазины"
+INTERESTS_MAP = {
+    "☕ Кофейни": "кофейни",
+    "🎨 Стрит-арт": "стрит-арт",
+    "🏛️ Музеи": "музеи",
+    "🌅 Панорамы": "панорамы",
+    "🏛️ Архитектура": "архитектура",
+    "🌳 Парки": "парки",
+    "🛍️ Магазины": "магазины",
 }
+PRESET_INTERESTS = set(INTERESTS_MAP.keys())
 
+# ------------------- Парсим координаты ---------------------
+
+from urllib.parse import quote
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+def _parse_coords(s: str):
+    # "55.7558, 37.6173" -> (55.7558, 37.6173)
+    try:
+        parts = [p.strip() for p in (s or "").split(",")]
+        if len(parts) != 2:
+            return None
+        lat = float(parts[0])
+        lon = float(parts[1])
+        return lat, lon
+    except Exception:
+        return None
+
+def _build_yandex_route_url(output: list[dict], mode: str = "pd") -> str | None:
+    coords = []
+    for p in output:
+        parsed = _parse_coords(p.get("coordinates", ""))
+        if parsed:
+            lat, lon = parsed
+            coords.append(f"{lat},{lon}")
+
+    # Для маршрута нужно минимум 2 точки
+    if len(coords) < 2:
+        return None
+
+    rtext = "~".join(coords)
+    return f"https://yandex.ru/maps/?rtext={quote(rtext)}&rtt={mode}"
+
+
+# --------------- Старт -------------------
 
 @router.message(Command("route"))
 async def cmd_route(message: types.Message, state: FSMContext):
@@ -63,7 +103,8 @@ async def cmd_route(message: types.Message, state: FSMContext):
         telegram_id=telegram_id,
         username=message.from_user.username or "",
         first_name=message.from_user.first_name or "",
-        interests=[]
+        interests=[],        
+        interests_ui=[] 
     )
 
     await message.answer(
@@ -94,6 +135,7 @@ async def process_interests_done(message: types.Message, state: FSMContext):
     """Пользователь закончил выбирать интересы"""
     data = await state.get_data()
     interests = data.get("interests", [])
+    interests_ui = data.get("interests_ui", [])
 
     if not interests:
         await message.answer(
@@ -105,7 +147,7 @@ async def process_interests_done(message: types.Message, state: FSMContext):
 
     await state.set_state(RouteStates.waiting_time)
 
-    interests_text = ", ".join(interests)
+    interests_text = ", ".join(interests_ui)
 
     await message.answer(
         f"🎯 <b>Отлично! Выбрано:</b> {interests_text}\n\n"
@@ -117,49 +159,46 @@ async def process_interests_done(message: types.Message, state: FSMContext):
 
 @router.message(RouteStates.waiting_interests, F.text)
 async def process_interests_any_text(message: types.Message, state: FSMContext):
-    logger.info("process_interests_any_text")
-    """
-    Универсальный обработчик интересов:
-    - кнопки из пресета
-    - произвольный ввод (можно несколько через запятую/перенос строки)
-    """
     text = (message.text or "").strip()
 
-    # "✅ Готово" обрабатывается отдельным хендлером выше
     if text == "✅ Готово":
         return
 
+    # Разбираем ввод
     if text in PRESET_INTERESTS:
-        items = [text]
+        ui_items = [text]
     else:
         raw = text.replace("\n", ",")
-        items = [x.strip() for x in raw.split(",") if x.strip()]
+        ui_items = [x.strip() for x in raw.split(",") if x.strip()]
 
-    if not items:
+    if not ui_items:
         await message.answer("❌ Не понял интерес. Введи текстом или выбери кнопку.")
         return
 
     data = await state.get_data()
     interests = data.get("interests", [])
+    interests_ui = data.get("interests_ui", [])
 
-    added = []
-    for it in items:
-        if it not in interests:
-            interests.append(it)
-            added.append(it)
+    added_ui = []
+    for ui in ui_items:
+        # slug для пресетов, иначе — нормализуем “кастом”
+        if ui in INTERESTS_MAP:
+            slug = INTERESTS_MAP[ui]
+        else:
+            # кастомный интерес → slug (просто нормализация)
+            slug = ui.lower().strip().replace(" ", "_")
 
-    await state.update_data(interests=interests)
+        if slug not in interests:
+            interests.append(slug)
+            interests_ui.append(ui)
+            added_ui.append(ui)
 
-    if added:
-        await message.answer(
-            f"✅ Добавлено: {', '.join(added)}",
-            reply_markup=get_interests_keyboard()
-        )
+    await state.update_data(interests=interests, interests_ui=interests_ui)
+
+    if added_ui:
+        await message.answer(f"✅ Добавлено: {', '.join(added_ui)}", reply_markup=get_interests_keyboard())
     else:
-        await message.answer(
-            "ℹ️ Эти интересы уже добавлены.",
-            reply_markup=get_interests_keyboard()
-        )
+        await message.answer("ℹ️ Эти интересы уже добавлены.", reply_markup=get_interests_keyboard())
 
 
 # ---------- ВРЕМЯ ----------
@@ -341,7 +380,7 @@ async def finish_route_creation(message: types.Message, state: FSMContext):
 
             result = await gateway_ws.wait_for_task(task_id, timeout=120)
 
-            if result.get("status") == "finished":
+            if result.get("status") in ("ok", "finished"):
                 await show_real_route(message, result)
             else:
                 await handle_route_error(message, result, data)
@@ -364,38 +403,71 @@ async def finish_route_creation(message: types.Message, state: FSMContext):
 
 
 async def show_real_route(message: types.Message, result: dict):
-    """Показать реальный маршрут из API"""
-    route_data = result.get("payload", {}).get("route", [])
-
-    if not route_data:
+    """
+    Ожидаемый формат:
+    {
+      "user_id": 4,
+      "task_id": "...",
+      "output": [{"coordinates":"..","description":".."}, ...],
+      "description": "...",
+      "time": 1.5,
+      "long": 2.5,
+      "advice": "...",
+      "status": "ok"
+    }
+    """
+    output = result.get("output", [])
+    if not output:
         await message.answer(
-            "❌ Не удалось построить маршрут для указанных параметров\n\n"
+            "❌ Не удалось построить маршрут (пустой список точек)\n\n"
             "Попробуйте изменить интересы или локацию.",
             reply_markup=get_main_menu_keyboard(is_authenticated=True)
         )
         return
 
-    route_text = f"""
-🗺️ <b>Ваш маршрут готов!</b>
+    total_time = result.get("time")     # часы
+    total_len = result.get("long")      # км
+    desc = result.get("description", "")
+    advice = result.get("advice", "")
 
-🎯 <b>Всего точек:</b> {len(route_data)}
-⏱️ <b>Общее время:</b> {sum(point.get('time', 30) for point in route_data) // 60} часов
+    # Формируем ссылку на Яндекс маршрут
+    yandex_url = _build_yandex_route_url(output, mode="pd")
 
-<b>Маршрут включает:</b>
-"""
+    # Подробный текст (в стиле “как было у тебя”)
+    text = "🗺️ <b>Ваш маршрут готов!</b>\n\n"
+    text += f"🎯 <b>Всего точек:</b> {len(output)}\n"
+    if total_time is not None:
+        text += f"⏱️ <b>Время:</b> {total_time} часов\n"
+    if total_len is not None:
+        text += f"📏 <b>Длина:</b> {total_len} км\n"
 
-    for i, point in enumerate(route_data, 1):
-        name = point.get('name', f'Точка {i}')
-        time_min = point.get('time', 30)
-        description = point.get('description', '')
+    if desc:
+        text += f"\n<b>Описание:</b>\n<i>{desc}</i>\n"
 
-        route_text += f"\n{i}. <b>{name}</b> - {time_min} мин"
-        if description:
-            route_text += f"\n   <i>{description}</i>"
+    text += "\n<b>Маршрут включает:</b>\n"
+    for i, point in enumerate(output, 1):
+        name = point.get("description", f"Точка {i}")
+        coords = point.get("coordinates", "")
+        text += f"\n{i}. <b>{name}</b>"
+        if coords:
+            text += f"\n   <code>{coords}</code>"
 
-    route_text += "\n\n🚶 <b>Приятной прогулки!</b>"
+    if advice:
+        text += f"\n\n💡 <b>Совет:</b>\n<i>{advice}</i>"
 
-    await message.answer(route_text, reply_markup=get_main_menu_keyboard(is_authenticated=True))
+    # Если ссылка собралась — добавляем кнопку
+    if yandex_url:
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="🗺️ Открыть маршрут в Яндекс Картах", url=yandex_url)]
+            ]
+        )
+        await message.answer(text, reply_markup=kb)
+        # отдельным сообщением вернуть меню (чтобы не потерять кнопки бота)
+        await message.answer("Что дальше?", reply_markup=get_main_menu_keyboard(is_authenticated=True))
+    else:
+        # если точек < 2 или координаты не распарсились
+        await message.answer(text, reply_markup=get_main_menu_keyboard(is_authenticated=True))
 
 
 async def handle_route_error(message: types.Message, result: dict, original_data: dict):

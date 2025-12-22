@@ -2,11 +2,11 @@ import httpx
 from fastapi import APIRouter, HTTPException, status
 from src.models.JSONmodels import (
     UserSignInResponse, 
-    UserSignInRequest,  # ❗ ИСПРАВЛЯЕМ: SignIp -> SignIn
+    UserSignInRequest, 
     UserSignUpRequest,
-    TelegramLinkRequest,  # ❗ ДОБАВЛЯЕМ
-    TelegramAuthRequest,  # ❗ ДОБАВЛЯЕМ
-    TelegramUserResponse  # ❗ ДОБАВЛЯЕМ
+    TelegramLinkRequest, 
+    TelegramAuthRequest, 
+    TelegramUserResponse
 )
 from src.config import USER_SERVICE_URL
 
@@ -43,7 +43,7 @@ async def sign_up(user_data: UserSignUpRequest):
 
 
 @router.post("/sign-in", response_model=UserSignInResponse, status_code=status.HTTP_200_OK)
-async def sign_in(user_data: UserSignInRequest):  # ❗ ИСПРАВЛЯЕМ: SignIp -> SignIn
+async def sign_in(user_data: UserSignInRequest): 
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
@@ -73,15 +73,15 @@ async def sign_in(user_data: UserSignInRequest):  # ❗ ИСПРАВЛЯЕМ: Si
     
     # User-service теперь сам возвращает токен
     return UserSignInResponse(
-        token=data["token"],  # ❗ Токен уже есть в ответе User-service
+        token=data["token"],  # Токен уже есть в ответе User-service
         user_id=data["user_id"],
         username=data["username"],
         message=data["message"],
-        telegram_id=data.get("telegram_id")  # ❗ Добавляем telegram_id если есть
+        telegram_id=data.get("telegram_id")  #  Добавляем telegram_id если есть
     )
 
 
-# ❗ ДОБАВЛЯЕМ НОВЫЕ ЭНДПОИНТЫ ДЛЯ TELEGRAM
+# ЭНДПОИНТЫ ДЛЯ TELEGRAM
 
 @router.post("/link_telegram", status_code=status.HTTP_200_OK)
 async def link_telegram(link_data: TelegramLinkRequest):

@@ -23,93 +23,103 @@ logger = logging.getLogger(__name__)
 @router.message(Command("login"))
 @router.message(F.text == "🔐 Войти")
 async def cmd_login_choice(message: types.Message, state: FSMContext):
-    """
-    Показать выбор способа входа
-    """
     await state.clear()
-    
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="📧 Войти через email",
-                    callback_data="login_email"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🔗 Войти через WebApp",
-                    callback_data="login_webapp"
-                )
-            ]
-        ]
-    )
-    
-    await message.answer(
-        "🔐 <b>Выберите способ входа:</b>\n\n"
-        "• <b>Через email</b> — стандартный вход по логину и паролю\n"
-        "• <b>Через WebApp</b> — удобный интерфейс в браузере\n\n"
-        "<i>При первом входе ваш Telegram ID будет привязан к аккаунту</i>",
-        reply_markup=keyboard
-    )
-
-
-@router.callback_query(F.data == "login_email")
-async def callback_login_email(callback: types.CallbackQuery, state: FSMContext):
-    """Начать процесс входа через email"""
-    await callback.message.delete()
     await state.set_state(AuthStates.waiting_email)
-    
-    await callback.message.answer(
+
+    await message.answer(
         "📧 <b>Вход через email</b>\n\n"
         "Введите ваш email для входа:\n\n"
         "<i>Или используйте /register для регистрации нового аккаунта</i>",
         reply_markup=get_cancel_keyboard()
     )
-    await callback.answer()
+# async def cmd_login_choice(message: types.Message, state: FSMContext):
+#     """
+#     Показать выбор способа входа
+#     """
+#     await state.clear()
+    
+#     keyboard = InlineKeyboardMarkup(
+#         inline_keyboard=[
+#             [
+#                 InlineKeyboardButton(
+#                     text="📧 Войти через email",
+#                     callback_data="login_email"
+#                 )
+#             ],
+#             [
+#                 InlineKeyboardButton(
+#                     text="🔗 Войти через WebApp",
+#                     callback_data="login_webapp"
+#                 )
+#             ]
+#         ]
+#     )
+    
+#     await message.answer(
+#         "🔐 <b>Выберите способ входа:</b>\n\n"
+#         "• <b>Через email</b> — стандартный вход по логину и паролю\n"
+#         "• <b>Через WebApp</b> — удобный интерфейс в браузере\n\n"
+#         "<i>При первом входе ваш Telegram ID будет привязан к аккаунту</i>",
+#         reply_markup=keyboard
+#     )
 
 
-@router.callback_query(F.data == "login_webapp")
-async def callback_login_webapp(callback: types.CallbackQuery):
-    """Открыть WebApp для входа"""
-    try:
-        # Получаем URL WebApp из конфигурации
-        webapp_url = config.WEBAPP_URL
+# @router.callback_query(F.data == "login_email")
+# async def callback_login_email(callback: types.CallbackQuery, state: FSMContext):
+    # """Начать процесс входа через email"""
+    # await callback.message.delete()
+    # await state.set_state(AuthStates.waiting_email)
+    
+    # await callback.message.answer(
+    #     "📧 <b>Вход через email</b>\n\n"
+    #     "Введите ваш email для входа:\n\n"
+    #     "<i>Или используйте /register для регистрации нового аккаунта</i>",
+    #     reply_markup=get_cancel_keyboard()
+    # )
+    # await callback.answer()
+
+
+# @router.callback_query(F.data == "login_webapp")
+# async def callback_login_webapp(callback: types.CallbackQuery):
+#     """Открыть WebApp для входа"""
+#     try:
+#         # Получаем URL WebApp из конфигурации
+#         webapp_url = config.WEBAPP_URL
         
-        if not webapp_url:
-            await callback.answer(
-                "❌ WebApp URL не настроен",
-                show_alert=True
-            )
-            return
+#         if not webapp_url:
+#             await callback.answer(
+#                 "❌ WebApp URL не настроен",
+#                 show_alert=True
+#             )
+#             return
         
-        # Создаем кнопку с WebApp
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text="🔗 Открыть WebApp для входа",
-                        web_app=WebAppInfo(url=webapp_url)
-                    )
-                ]
-            ]
-        )
+#         # Создаем кнопку с WebApp
+#         keyboard = InlineKeyboardMarkup(
+#             inline_keyboard=[
+#                 [
+#                     InlineKeyboardButton(
+#                         text="🔗 Открыть WebApp для входа",
+#                         web_app=WebAppInfo(url=webapp_url)
+#                     )
+#                 ]
+#             ]
+#         )
         
-        await callback.message.answer(
-            "🔐 <b>Вход через WebApp</b>\n\n"
-            "Нажмите кнопку ниже чтобы открыть интерфейс входа в браузере.\n"
-            "Это удобный способ авторизации с красивым интерфейсом.",
-            reply_markup=keyboard
-        )
+#         await callback.message.answer(
+#             "🔐 <b>Вход через WebApp</b>\n\n"
+#             "Нажмите кнопку ниже чтобы открыть интерфейс входа в браузере.\n"
+#             "Это удобный способ авторизации с красивым интерфейсом.",
+#             reply_markup=keyboard
+#         )
         
-        await callback.answer()
+#         await callback.answer()
         
-    except Exception as e:
-        logger.error(f"Ошибка при открытии WebApp: {e}")
-        await callback.answer(
-            "⚠️ Ошибка при открытии WebApp. Попробуйте войти через email.",
-            show_alert=True
-        )
+#     except Exception as e:
+#         logger.error(f"Ошибка при открытии WebApp: {e}")
+#         await callback.answer(
+#             "⚠️ Ошибка при открытии WebApp. Попробуйте войти через email.",
+#             show_alert=True
+#         )
 
 @router.message(Command("register"))
 async def cmd_register(message: types.Message, state: FSMContext):

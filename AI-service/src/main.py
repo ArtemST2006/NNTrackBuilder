@@ -9,8 +9,7 @@ from typing import Optional
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.services.rag_wrapper import RAGWrapper, rag_wrapper
-
+from src.services.rag_wrapper import RAGWrapper
 from src.kafka.producer import kafka_producer
 from src.kafka.consumer import kafka_consumer
 
@@ -23,60 +22,68 @@ logging.basicConfig(
 logger = logging.getLogger("ai-service")
 
 
-async def _shutdown(consumer_task: asyncio.Task, rag: RAGWrapper) -> None:
-    logger.info("Shutdown: stopping consumer...")
-    kafka_consumer.stop()
+class Service:
+    def __init__(self) -> None:
+        self._shutdown_event = asyncio.Event()
+        self._tasks: list[asyncio.Task] = []
+        self._rag = RAGWrapper()
 
-    consumer_task.cancel()
-    try:
-        await consumer_task
-    except asyncio.CancelledError:
-        pass
+    async def start(self) -> None:
+        logger.info("Starting Kafka producer...")
+        await kafka_producer.start()
+        logger.info("Kafka producer started.")
 
-    logger.info("Shutdown: stopping producer...")
-    await kafka_producer.stop()
+        logger.info("Starting Kafka consumer...")
+        consumer_task = asyncio.create_task(
+            kafka_consumer.start(), name="kafka-consumer"
+        )
+        self._tasks.append(consumer_task)
+        logger.info("Kafka consumer started.")
 
-    rag.shutdown()
+        await self._shutdown_event.wait()
+        await self.shutdown()
 
-    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
-    [task.cancel() for task in tasks]
-    await asyncio.gather(*tasks, return_exceptions=True)
+    async def shutdown(self) -> None:
+        logger.info("Shutdown initiated...")
 
-    logger.info("Shutdown complete.")
+        kafka_consumer.stop()
 
+        for task in self._tasks:
+            task.cancel()
 
-async def run() -> None:
-    logger.info("Starting Kafka producer...")
-    await kafka_producer.start()
-    logger.info("Kafka producer started.")
+        await asyncio.gather(*self._tasks, return_exceptions=True)
 
-    logger.info("Starting Kafka consumer...")
-    consumer_task = asyncio.create_task(kafka_consumer.start(), name="kafka-consumer")
-    logger.info("Kafka consumer started.")
+        logger.info("Stopping Kafka producer...")
+        await kafka_producer.stop()
 
-    try:
-        await consumer_task
-    finally:
-        await _shutdown(consumer_task, rag_wrapper)
+        self._rag.shutdown()
+
+        logger.info("Shutdown complete.")
+
+    def stop(self) -> None:
+        self._shutdown_event.set()
 
 
 def main() -> None:
-    print('he')
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
-    def _on_signal(sig: int, frame: Optional[object] = None) -> None:
-        logger.info("Signal %s received, stopping...", sig)
-        kafka_consumer.stop()
+    service = Service()
 
-    # Корректная обработка SIGINT/SIGTERM
+    def _on_signal(sig: int, frame: Optional[object] = None) -> None:
+        logger.info("Signal %s received", sig)
+        service.stop()
+
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
             loop.add_signal_handler(sig, _on_signal, sig, None)
         except NotImplementedError:
             signal.signal(sig, _on_signal)
 
-    loop.run_until_complete(run())
+    try:
+        loop.run_until_complete(service.start())
+    finally:
+        loop.close()
 
 
 if __name__ == "__main__":

@@ -63,6 +63,7 @@ htmlcov/
 # --- Database & Migrations ---
 *.sqlite
 *.db
+chroma_db/
 # Alembic: мы коммитим версии миграций, но не кэш
 User-service/migrations/__pycache__/
 

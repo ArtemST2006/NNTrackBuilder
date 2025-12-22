@@ -1,13 +1,15 @@
+import asyncio
 import json
 import logging
-import asyncio
-from sqlalchemy.exc import IntegrityError
 
 from aiokafka import AIOKafkaConsumer
-from src.config import KAFKA_BOOTSTRAP, KAFKA_TOPIC_AI_RESPONSE, KAFKA_GROUP_ID, logger
-from src.database import async_session_maker
-from src.repository.statistic_postgres import StatisticRepository
+from sqlalchemy.exc import IntegrityError
+from src.config import (KAFKA_BOOTSTRAP, KAFKA_GROUP_ID,
+                        KAFKA_TOPIC_AI_RESPONSE, logger)
 from src.models.JSONmodels import AIResponse
+from src.repository.statistic_postgres import StatisticRepository
+
+from src.database import async_session_maker
 
 
 class KafkaResponseConsumer:
@@ -22,8 +24,8 @@ class KafkaResponseConsumer:
             KAFKA_TOPIC_AI_RESPONSE,
             bootstrap_servers=KAFKA_BOOTSTRAP,
             group_id=KAFKA_GROUP_ID,
-            auto_offset_reset='latest',
-            enable_auto_commit=False
+            auto_offset_reset="latest",
+            enable_auto_commit=False,
         )
 
         try:
@@ -35,13 +37,15 @@ class KafkaResponseConsumer:
                 if not self.running:
                     break
                 try:
-                    data_dict = json.loads(msg.value.decode('utf-8'))
+                    data_dict = json.loads(msg.value.decode("utf-8"))
 
                     logger.info(f"Received JSON: {data_dict}")
                     await self.message(data_dict)
 
                 except json.JSONDecodeError:
-                    logger.error(f"BAD JSON SKIP: Не смог прочитать сообщение: {msg.value}")
+                    logger.error(
+                        f"BAD JSON SKIP: Не смог прочитать сообщение: {msg.value}"
+                    )
 
                 except Exception as e:
                     logger.exception(f"Processing Error: {e}")

@@ -1,6 +1,5 @@
 # tests/test_gigachat_service.py
 import pytest
-
 from src.services.gigachat_service import GigachatService
 
 
@@ -8,9 +7,9 @@ from src.services.gigachat_service import GigachatService
     "raw,expected",
     [
         ('{"a": 1}', {"a": 1}),
-        ("```json\n{\"a\": 1}\n```", {"a": 1}),
-        ("text before\n```json\n{\"a\": 1}\n```\ntext after", {"a": 1}),
-        ("prefix {\"a\": 1} suffix", {"a": 1}),
+        ('```json\n{"a": 1}\n```', {"a": 1}),
+        ('text before\n```json\n{"a": 1}\n```\ntext after', {"a": 1}),
+        ('prefix {"a": 1} suffix', {"a": 1}),
     ],
 )
 def test_extract_json_object_ok(raw, expected):
@@ -53,7 +52,10 @@ def test_validate_and_normalize_output_ok():
         "task_id": "wrong",
         "output": [
             {"coordinates": "55.7520, 37.6175", "description": "Московский Кремль"},
-            {"coordinates": "55.7558, 37.6173", "description": "Красная площадь, Москва"},
+            {
+                "coordinates": "55.7558, 37.6173",
+                "description": "Красная площадь, Москва",
+            },
         ],
         "description": "Маршрут по центру",
         "time": 3.5,

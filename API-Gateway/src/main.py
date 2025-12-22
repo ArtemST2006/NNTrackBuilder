@@ -1,15 +1,13 @@
 import asyncio
-import uvicorn
-
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-
+import uvicorn
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from src.api import router as main_router
 from src.config import logger
-from src.kafka.producer import kafka_producer
 from src.kafka.consumer import kafka_consumer
+from src.kafka.producer import kafka_producer
 from src.managers import manager
 
 
@@ -47,6 +45,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.websocket("/ws/{user_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: int):
     await manager.connect(user_id, websocket)
@@ -61,11 +60,6 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
 
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "src.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True
-    )
+    uvicorn.run("src.main:app", host="0.0.0.0", port=8000, reload=True)
     if not kafka_consumer.done():
         kafka_consumer.cancel()

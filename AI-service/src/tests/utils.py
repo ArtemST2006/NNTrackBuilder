@@ -9,13 +9,13 @@ MOCK_SEARCH_RESULTS = [
             "city": "Москва",
             "lat": 55.7558,
             "lon": 37.6173,
-            "category": "sightseeing"
+            "category": "sightseeing",
         },
         "distance": 0.05,
         "base_score": 0.9523809523809523,
         "bm25_score": 1.0,
         "final_score": 0.975,
-        "tags": ["история", "архитектура", "центр"]
+        "tags": ["история", "архитектура", "центр"],
     },
     {
         "id": "202",
@@ -26,15 +26,16 @@ MOCK_SEARCH_RESULTS = [
             "name": "Парк Горького",
             "city": "Москва",
             "lat": 55.7282,
-            "lon": 37.6011
+            "lon": 37.6011,
         },
         "distance": None,
         "base_score": 0.0,
         "bm25_score": 0.85,
         "final_score": 0.425,
-        "tags": ["парк", "отдых"]
-    }
+        "tags": ["парк", "отдых"],
+    },
 ]
+
 
 def _parse_coords(value):
     if not value:
@@ -55,4 +56,3 @@ def _parse_coords(value):
         return lat, lon
     except ValueError:
         return None, None
-

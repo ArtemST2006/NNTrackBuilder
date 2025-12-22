@@ -1,9 +1,7 @@
-import os
 import logging
+import os
 
-logging.basicConfig(
-    level=logging.INFO
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 DB_USER = os.getenv("DB_USER", "user_user")

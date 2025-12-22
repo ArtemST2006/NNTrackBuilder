@@ -9,8 +9,8 @@ from typing import Optional
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.kafka.producer import kafka_producer
 from src.kafka.consumer import kafka_consumer
+from src.kafka.producer import kafka_producer
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
@@ -52,7 +52,7 @@ async def run() -> None:
 
 
 def main() -> None:
-    print('he')
+    print("he")
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 

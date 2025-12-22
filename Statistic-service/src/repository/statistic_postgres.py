@@ -1,10 +1,11 @@
 import datetime
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
-from src.models.tables import Statistic
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.JSONmodels import AIResponse, StatisticResponse
+from src.models.tables import Statistic
+
 
 class StatisticRepository:
     def __init__(self, db: AsyncSession):
@@ -15,9 +16,7 @@ class StatisticRepository:
         res = await self.db.execute(query)
         reports = res.scalars().all()
 
-        return StatisticResponse (
-            statistic=reports
-        )
+        return StatisticResponse(statistic=reports)
 
     async def add_new_predict(self, resp: AIResponse) -> None:
         new_statistic_entry = Statistic(

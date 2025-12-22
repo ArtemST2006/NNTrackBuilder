@@ -1,8 +1,6 @@
 import pytest
-
-from src.services.gigachat_service import GigachatService
 from src.config import GIGACHAT_CREDENTIALS
-
+from src.services.gigachat_service import GigachatService
 
 pytestmark = pytest.mark.integration
 
@@ -11,9 +9,10 @@ pytestmark = pytest.mark.integration
 async def test_build_route_live_api():
     creds = GIGACHAT_CREDENTIALS
 
-
     if not creds:
-        pytest.skip("Нет GIGACHAT_CREDENTIALS в env — пропускаем live-интеграционный тест.")
+        pytest.skip(
+            "Нет GIGACHAT_CREDENTIALS в env — пропускаем live-интеграционный тест."
+        )
 
     service = GigachatService()
 

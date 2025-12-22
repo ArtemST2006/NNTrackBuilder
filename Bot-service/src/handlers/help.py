@@ -3,6 +3,7 @@ from aiogram.filters import Command
 
 router = Router()
 
+
 @router.message(Command("help"))
 async def cmd_help(message: types.Message):
     """
@@ -62,7 +63,7 @@ async def cmd_help(message: types.Message):
 Даже без авторизации вы можете попробовать демо-версию
 командой /route — вы получите пример маршрута.
 """
-    
+
     await message.answer(help_text)
 
 

@@ -1,10 +1,12 @@
-from typing import List, Dict, Any
 import logging
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
 
-def convert_rag_results_to_output(results: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+def convert_rag_results_to_output(
+    results: List[Dict[str, Any]]
+) -> List[Dict[str, str]]:
     """
     Преобразует результаты HybridSearcher в формат:
 
@@ -17,15 +19,15 @@ def convert_rag_results_to_output(results: List[Dict[str, Any]]) -> List[Dict[st
 
     for idx, item in enumerate(results, start=1):
         """
-            ожидаемая структура item:
-            {
-                "name": ...,
-                "final_score": ...,
-                "metadata": {...},
-                "lat": ... (опционально),
-                "lon": ... (опционально),
-                "distance": ...
-            }
+        ожидаемая структура item:
+        {
+            "name": ...,
+            "final_score": ...,
+            "metadata": {...},
+            "lat": ... (опционально),
+            "lon": ... (опционально),
+            "distance": ...
+        }
         """
 
         name = item.get("name")

@@ -1,20 +1,15 @@
 import logging
 
-from aiogram import Router, types, F
+from aiogram import F, Router, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import ReplyKeyboardRemove
-
-from states import RouteStates
 from services.api_client import api_client
 from services.token_storage import token_storage
 from services.websocket_client import gateway_ws
-from utils.keyboards import (
-    get_interests_keyboard,
-    get_time_keyboard,
-    get_location_keyboard,
-    get_main_menu_keyboard,
-)
+from states import RouteStates
+from utils.keyboards import (get_interests_keyboard, get_location_keyboard,
+                             get_main_menu_keyboard, get_time_keyboard)
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -33,7 +28,9 @@ PRESET_INTERESTS = set(INTERESTS_MAP.keys())
 # ------------------- Парсим координаты ---------------------
 
 from urllib.parse import quote
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
 
 def _parse_coords(s: str):
     # "55.7558, 37.6173" -> (55.7558, 37.6173)
@@ -46,6 +43,7 @@ def _parse_coords(s: str):
         return lat, lon
     except Exception:
         return None
+
 
 def _build_yandex_route_url(output: list[dict], mode: str = "pd") -> str | None:
     coords = []
@@ -65,6 +63,7 @@ def _build_yandex_route_url(output: list[dict], mode: str = "pd") -> str | None:
 
 # --------------- Старт -------------------
 
+
 @router.message(Command("route"))
 async def cmd_route(message: types.Message, state: FSMContext):
     logger.info("start route. version 1")
@@ -79,7 +78,7 @@ async def cmd_route(message: types.Message, state: FSMContext):
             "🔐 <b>Требуется авторизация</b>\n\n"
             "Для создания персонализированных маршрутов нужно войти в аккаунт.\n\n"
             "Используйте команду /login или кнопку ниже.",
-            reply_markup=get_main_menu_keyboard(is_authenticated=False)
+            reply_markup=get_main_menu_keyboard(is_authenticated=False),
         )
         return
 
@@ -91,7 +90,7 @@ async def cmd_route(message: types.Message, state: FSMContext):
             await message.answer(
                 "❌ <b>Не удалось подключиться к сервису маршрутов</b>\n\n"
                 "Попробуйте позже или обратитесь в поддержку.",
-                reply_markup=get_main_menu_keyboard(is_authenticated=True)
+                reply_markup=get_main_menu_keyboard(is_authenticated=True),
             )
             return
 
@@ -103,8 +102,8 @@ async def cmd_route(message: types.Message, state: FSMContext):
         telegram_id=telegram_id,
         username=message.from_user.username or "",
         first_name=message.from_user.first_name or "",
-        interests=[],        
-        interests_ui=[] 
+        interests=[],
+        interests_ui=[],
     )
 
     await message.answer(
@@ -112,11 +111,12 @@ async def cmd_route(message: types.Message, state: FSMContext):
         "🎯 <b>Шаг 1 из 3: Выбери что тебе интересно</b>\n"
         "<i>Можно выбрать несколько категорий, затем нажми '✅ Готово'</i>\n"
         "<i>Также можно вводить интересы вручную текстом</i>",
-        reply_markup=get_interests_keyboard()
+        reply_markup=get_interests_keyboard(),
     )
 
 
 # ---------- ИНТЕРЕСЫ (кнопки + ручной ввод) ----------
+
 
 @router.message(RouteStates.waiting_interests, F.text == "✏️ Ввести свои варианты")
 async def process_custom_interests_request(message: types.Message, state: FSMContext):
@@ -125,7 +125,7 @@ async def process_custom_interests_request(message: types.Message, state: FSMCon
         "✏️ <b>Введи интересы вручную</b>\n"
         "<i>Можно несколько через запятую или с новой строки.</i>\n"
         "Например: кофе, бары, видовые площадки",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=ReplyKeyboardRemove(),
     )
 
 
@@ -139,9 +139,8 @@ async def process_interests_done(message: types.Message, state: FSMContext):
 
     if not interests:
         await message.answer(
-            "❌ Нужно выбрать хотя бы одну категорию!\n"
-            "Попробуй еще раз:",
-            reply_markup=get_interests_keyboard()
+            "❌ Нужно выбрать хотя бы одну категорию!\n" "Попробуй еще раз:",
+            reply_markup=get_interests_keyboard(),
         )
         return
 
@@ -153,7 +152,7 @@ async def process_interests_done(message: types.Message, state: FSMContext):
         f"🎯 <b>Отлично! Выбрано:</b> {interests_text}\n\n"
         "⏱️ <b>Шаг 2 из 3: Сколько времени у тебя есть?</b>\n"
         "<i>Выбери из предложенных или введи свое число (например: 2.5)</i>",
-        reply_markup=get_time_keyboard()
+        reply_markup=get_time_keyboard(),
     )
 
 
@@ -196,14 +195,22 @@ async def process_interests_any_text(message: types.Message, state: FSMContext):
     await state.update_data(interests=interests, interests_ui=interests_ui)
 
     if added_ui:
-        await message.answer(f"✅ Добавлено: {', '.join(added_ui)}", reply_markup=get_interests_keyboard())
+        await message.answer(
+            f"✅ Добавлено: {', '.join(added_ui)}",
+            reply_markup=get_interests_keyboard(),
+        )
     else:
-        await message.answer("ℹ️ Эти интересы уже добавлены.", reply_markup=get_interests_keyboard())
+        await message.answer(
+            "ℹ️ Эти интересы уже добавлены.", reply_markup=get_interests_keyboard()
+        )
 
 
 # ---------- ВРЕМЯ ----------
 
-@router.message(RouteStates.waiting_time, F.text.in_(["1 час", "2 часа", "3 часа", "4 часа"]))
+
+@router.message(
+    RouteStates.waiting_time, F.text.in_(["1 час", "2 часа", "3 часа", "4 часа"])
+)
 async def process_time_selection(message: types.Message, state: FSMContext):
     """Пользователь выбрал время из кнопок"""
     time_text = message.text
@@ -229,7 +236,7 @@ async def process_custom_time_request(message: types.Message, state: FSMContext)
         "⏱️ <b>Введи количество часов:</b>\n"
         "<i>Например: 1.5 или 2.75</i>\n"
         "<i>Минимум: 0.5 часа, максимум: 8 часов</i>",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=ReplyKeyboardRemove(),
     )
 
 
@@ -243,17 +250,15 @@ async def process_time_input(message: types.Message, state: FSMContext):
             await process_time_value(message, state, time_hours)
         else:
             await message.answer(
-                "❌ Время должно быть от 0.5 до 8 часов.\n"
-                "Попробуй еще раз:"
+                "❌ Время должно быть от 0.5 до 8 часов.\n" "Попробуй еще раз:"
             )
     except ValueError:
-        await message.answer(
-            "❌ Пожалуйста, введи число.\n"
-            "Например: 2.5 или 3"
-        )
+        await message.answer("❌ Пожалуйста, введи число.\n" "Например: 2.5 или 3")
 
 
-async def process_time_value(message: types.Message, state: FSMContext, time_hours: float):
+async def process_time_value(
+    message: types.Message, state: FSMContext, time_hours: float
+):
     """Обработка числового значения времени"""
     await state.update_data(time_hours=time_hours)
     await state.set_state(RouteStates.waiting_location)
@@ -262,11 +267,12 @@ async def process_time_value(message: types.Message, state: FSMContext, time_hou
         f"⏱️ <b>Отлично! Время:</b> {time_hours} часов\n\n"
         "📍 <b>Шаг 3 из 3: Откуда начинаем прогулку?</b>\n"
         "<i>Отправь геолокацию или введи адрес</i>",
-        reply_markup=get_location_keyboard()
+        reply_markup=get_location_keyboard(),
     )
 
 
 # ---------- ЛОКАЦИЯ ----------
+
 
 @router.message(RouteStates.waiting_location, F.text == "🏙️ Ввести адрес")
 async def process_address_request(message: types.Message, state: FSMContext):
@@ -275,7 +281,7 @@ async def process_address_request(message: types.Message, state: FSMContext):
     await message.answer(
         "🏙️ <b>Введи адрес или название места:</b>\n"
         "<i>Например: Нижегородский кремль, ул. Большая Покровская</i>",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=ReplyKeyboardRemove(),
     )
 
 
@@ -290,7 +296,7 @@ async def process_location(message: types.Message, state: FSMContext):
             "type": "coordinates",
             "lat": location.latitude,
             "lon": location.longitude,
-            "text": "геолокация"
+            "text": "геолокация",
         }
     )
 
@@ -325,22 +331,20 @@ async def process_address_input(message: types.Message, state: FSMContext):
 
     # Если человек написал текстом название кнопки — не считаем это адресом
     if address == "📍 Отправить геолокацию":
-        await message.answer("Нажми кнопку и разреши доступ к геолокации, либо введи адрес текстом.")
+        await message.answer(
+            "Нажми кнопку и разреши доступ к геолокации, либо введи адрес текстом."
+        )
         return
 
     await state.update_data(
-        location={
-            "type": "address",
-            "text": address,
-            "lat": None,
-            "lon": None
-        }
+        location={"type": "address", "text": address, "lat": None, "lon": None}
     )
 
     await finish_route_creation(message, state)
 
 
 # ---------- ФИНИШ ----------
+
 
 async def finish_route_creation(message: types.Message, state: FSMContext):
     logger.info("finish_route_creation")
@@ -370,7 +374,7 @@ async def finish_route_creation(message: types.Message, state: FSMContext):
             telegram_id=message.from_user.id,
             categories=interests,
             time_hours=time_hours,
-            location_data=location
+            location_data=location,
         )
 
         if response.get("success"):
@@ -388,7 +392,7 @@ async def finish_route_creation(message: types.Message, state: FSMContext):
             await message.answer(
                 f"❌ <b>Ошибка:</b> {response.get('error', 'Неизвестная ошибка')}\n\n"
                 f"<i>Детали:</i> {response.get('details', 'Нет деталей')}",
-                reply_markup=get_main_menu_keyboard(is_authenticated=True)
+                reply_markup=get_main_menu_keyboard(is_authenticated=True),
             )
 
     except Exception as e:
@@ -396,7 +400,7 @@ async def finish_route_creation(message: types.Message, state: FSMContext):
         await message.answer(
             "❌ <b>Внутренняя ошибка сервиса</b>\n\n"
             "Попробуйте позже или обратитесь в поддержку.",
-            reply_markup=get_main_menu_keyboard(is_authenticated=True)
+            reply_markup=get_main_menu_keyboard(is_authenticated=True),
         )
     finally:
         await state.clear()
@@ -421,12 +425,12 @@ async def show_real_route(message: types.Message, result: dict):
         await message.answer(
             "❌ Не удалось построить маршрут (пустой список точек)\n\n"
             "Попробуйте изменить интересы или локацию.",
-            reply_markup=get_main_menu_keyboard(is_authenticated=True)
+            reply_markup=get_main_menu_keyboard(is_authenticated=True),
         )
         return
 
-    total_time = result.get("time")     # часы
-    total_len = result.get("long")      # км
+    total_time = result.get("time")  # часы
+    total_len = result.get("long")  # км
     desc = result.get("description", "")
     advice = result.get("advice", "")
 
@@ -459,15 +463,23 @@ async def show_real_route(message: types.Message, result: dict):
     if yandex_url:
         kb = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="🗺️ Открыть маршрут в Яндекс Картах", url=yandex_url)]
+                [
+                    InlineKeyboardButton(
+                        text="🗺️ Открыть маршрут в Яндекс Картах", url=yandex_url
+                    )
+                ]
             ]
         )
         await message.answer(text, reply_markup=kb)
         # отдельным сообщением вернуть меню (чтобы не потерять кнопки бота)
-        await message.answer("Что дальше?", reply_markup=get_main_menu_keyboard(is_authenticated=True))
+        await message.answer(
+            "Что дальше?", reply_markup=get_main_menu_keyboard(is_authenticated=True)
+        )
     else:
         # если точек < 2 или координаты не распарсились
-        await message.answer(text, reply_markup=get_main_menu_keyboard(is_authenticated=True))
+        await message.answer(
+            text, reply_markup=get_main_menu_keyboard(is_authenticated=True)
+        )
 
 
 async def handle_route_error(message: types.Message, result: dict, original_data: dict):
@@ -479,14 +491,15 @@ async def handle_route_error(message: types.Message, result: dict, original_data
             "⏳ <b>Маршрут все еще обрабатывается</b>\n\n"
             "AI Service долго обрабатывает ваш запрос.\n"
             "Мы пришлем уведомление когда он будет готов!",
-            reply_markup=get_main_menu_keyboard(is_authenticated=True)
+            reply_markup=get_main_menu_keyboard(is_authenticated=True),
         )
     else:
         await message.answer(
             f"❌ <b>Ошибка при создании маршрута:</b> {result.get('error', 'Неизвестная ошибка')}\n\n"
             "Попробуйте изменить параметры и создать маршрут заново.",
-            reply_markup=get_main_menu_keyboard(is_authenticated=True)
+            reply_markup=get_main_menu_keyboard(is_authenticated=True),
         )
+
 
 @router.message(RouteStates.waiting_location)
 async def _debug_waiting_location_catchall(message: types.Message, state: FSMContext):
@@ -503,7 +516,7 @@ async def _debug_waiting_location_catchall(message: types.Message, state: FSMCon
         bool(message.location),
         bool(message.venue),
         getattr(message, "content_type", None),
-        message.text
+        message.text,
     )
     await message.answer(
         f"DEBUG: я в состоянии {st}. "
@@ -517,5 +530,5 @@ async def cancel_route(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer(
         "❌ Создание маршрута отменено.",
-        reply_markup=get_main_menu_keyboard(is_authenticated=True)
+        reply_markup=get_main_menu_keyboard(is_authenticated=True),
     )

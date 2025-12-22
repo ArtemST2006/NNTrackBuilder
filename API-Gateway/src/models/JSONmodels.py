@@ -1,9 +1,10 @@
 import datetime
 from typing import List, Optional
+
 from pydantic import BaseModel, EmailStr
 
 
-class UserSignInRequest(BaseModel):  
+class UserSignInRequest(BaseModel):
     email: str
     password: str
 
@@ -19,7 +20,7 @@ class UserSignInResponse(BaseModel):
     user_id: int
     username: str
     message: str
-    telegram_id: Optional[str] = None  
+    telegram_id: Optional[str] = None
 
 
 class TelegramAuthRequest(BaseModel):

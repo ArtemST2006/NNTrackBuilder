@@ -1,11 +1,8 @@
-from aiogram.types import (
-    ReplyKeyboardMarkup,
-    KeyboardButton,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-    ReplyKeyboardRemove
-)
 from typing import Optional
+
+from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
+                           KeyboardButton, ReplyKeyboardMarkup,
+                           ReplyKeyboardRemove)
 
 
 def get_interests_keyboard() -> ReplyKeyboardMarkup:
@@ -28,21 +25,22 @@ def get_interests_keyboard() -> ReplyKeyboardMarkup:
                 KeyboardButton(text="🛍️ Магазины"),
                 KeyboardButton(text="✏️ Ввести свои варианты"),
                 KeyboardButton(text="✅ Готово"),
-            ]
+            ],
         ],
         resize_keyboard=True,
-        one_time_keyboard=True
+        one_time_keyboard=True,
     )
+
 
 def get_time_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="1 час"), KeyboardButton(text="2 часа")],
             [KeyboardButton(text="3 часа"), KeyboardButton(text="4 часа")],
-            [KeyboardButton(text="Другое время...")]
+            [KeyboardButton(text="Другое время...")],
         ],
         resize_keyboard=True,
-        one_time_keyboard=True
+        one_time_keyboard=True,
     )
 
 
@@ -50,20 +48,17 @@ def get_location_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📍 Отправить геолокацию", request_location=True)],
-            [KeyboardButton(text="🏙️ Ввести адрес")]
+            [KeyboardButton(text="🏙️ Ввести адрес")],
         ],
         resize_keyboard=True,
-        one_time_keyboard=True
+        one_time_keyboard=True,
     )
 
 
 def get_auth_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="🔐 Войти")],
-            [KeyboardButton(text="ℹ️ О боте")]
-        ],
-        resize_keyboard=True
+        keyboard=[[KeyboardButton(text="🔐 Войти")], [KeyboardButton(text="ℹ️ О боте")]],
+        resize_keyboard=True,
     )
 
 
@@ -74,9 +69,9 @@ def get_main_menu_keyboard(is_authenticated: bool = False) -> ReplyKeyboardMarku
             keyboard=[
                 [KeyboardButton(text="🗺️ Создать маршрут")],
                 [KeyboardButton(text="👤 Профиль")],
-                [KeyboardButton(text="🚪 Выйти")]
+                [KeyboardButton(text="🚪 Выйти")],
             ],
-            resize_keyboard=True
+            resize_keyboard=True,
         )
     else:
         # Меню для неавторизованных пользователей
@@ -88,37 +83,31 @@ def get_login_choice_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="📧 Войти через email",
-                    callback_data="login_email"
+                    text="📧 Войти через email", callback_data="login_email"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="🔗 Войти через WebApp (скоро)",
-                    callback_data="login_webapp"
+                    text="🔗 Войти через WebApp (скоро)", callback_data="login_webapp"
                 )
-            ]
+            ],
         ]
     )
 
 
 def get_yes_no_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="✅ Да"), KeyboardButton(text="❌ Нет")]
-        ],
+        keyboard=[[KeyboardButton(text="✅ Да"), KeyboardButton(text="❌ Нет")]],
         resize_keyboard=True,
-        one_time_keyboard=True
+        one_time_keyboard=True,
     )
 
 
 def get_cancel_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="❌ Отмена")]
-        ],
+        keyboard=[[KeyboardButton(text="❌ Отмена")]],
         resize_keyboard=True,
-        one_time_keyboard=True
+        one_time_keyboard=True,
     )
 
 
@@ -126,19 +115,13 @@ def get_inline_login_keyboard(webapp_url: Optional[str] = None) -> InlineKeyboar
     buttons = []
 
     if webapp_url:
-        buttons.append([
-            InlineKeyboardButton(
-                text="🔗 Войти через WebApp",
-                web_app=webapp_url
-            )
-        ])
-
-    buttons.append([
-        InlineKeyboardButton(
-            text="📧 Войти через email",
-            callback_data="login_email"
+        buttons.append(
+            [InlineKeyboardButton(text="🔗 Войти через WebApp", web_app=webapp_url)]
         )
-    ])
+
+    buttons.append(
+        [InlineKeyboardButton(text="📧 Войти через email", callback_data="login_email")]
+    )
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 

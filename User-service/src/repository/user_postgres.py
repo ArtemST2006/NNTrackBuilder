@@ -1,9 +1,11 @@
-from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
-from src.models.tables import User
 from typing import Optional
-from src.midlware.utils import get_password_hash 
+
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.midlware.utils import get_password_hash
+from src.models.tables import User
+
 
 class UserRepository:
     def __init__(self, db: AsyncSession):
@@ -17,7 +19,7 @@ class UserRepository:
     async def create(self, email: str, password: str, username: str) -> User:
         new_user = User(
             email=email,
-            password=get_password_hash(password), 
+            password=get_password_hash(password),
             username=username,
         )
         self.db.add(new_user)
@@ -37,19 +39,19 @@ class UserRepository:
         query = select(User).where(User.telegram_id == telegram_id)
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
-    
+
     async def update_telegram_info(
-        self, 
-        user_id: int, 
-        telegram_id: str, 
+        self,
+        user_id: int,
+        telegram_id: str,
         telegram_username: Optional[str] = None,
         first_name: Optional[str] = None,
-        last_name: Optional[str] = None
+        last_name: Optional[str] = None,
     ) -> User:
         user = await self.get_by_id(user_id)
         if not user:
             raise ValueError(f"User with id {user_id} not found")
-        
+
         user.telegram_id = telegram_id
         if telegram_username:
             user.telegram_username = telegram_username
@@ -57,7 +59,7 @@ class UserRepository:
             user.first_name = first_name
         if last_name:
             user.last_name = last_name
-        
+
         try:
             await self.db.commit()
             await self.db.refresh(user)
@@ -65,19 +67,19 @@ class UserRepository:
         except IntegrityError as e:
             await self.db.rollback()
             raise e
-    
+
     async def get_by_id(self, user_id: int) -> Optional[User]:
         query = select(User).where(User.id == user_id)
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
-    
+
     async def create_telegram_user(
         self,
         telegram_id: str,
         username: str,
         telegram_username: Optional[str] = None,
         first_name: Optional[str] = None,
-        last_name: Optional[str] = None
+        last_name: Optional[str] = None,
     ) -> User:
         new_user = User(
             telegram_id=telegram_id,

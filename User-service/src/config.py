@@ -1,13 +1,12 @@
-from dotenv import load_dotenv
 import logging
 import os
+
+from dotenv import load_dotenv
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO
-)
+logging.basicConfig(level=logging.INFO)
 
 DB_USER = "user_user"
 DB_PASS = "123"

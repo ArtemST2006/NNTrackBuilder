@@ -1,11 +1,11 @@
-from typing import Dict, List, Optional, Tuple
 import json
-import re
-import chromadb
-import os
-from pathlib import Path
 import math
+import os
+import re
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
+import chromadb
 
 
 class BM25Index:
@@ -46,7 +46,7 @@ class BM25Index:
         self.avg_doc_length = total_length / max(1, self.N)
 
     def search(
-            self, query_tokens: List[str], top_k: int = 20
+        self, query_tokens: List[str], top_k: int = 20
     ) -> List[Tuple[str, float]]:
         if not query_tokens or not self.postings:
             return []
@@ -70,7 +70,7 @@ class BM25Index:
             idf = max(idf, 1e-9)
             for doc_id, tf in posting:
                 denom = tf + self.k1 * (
-                        1 - self.b + self.b * self.doc_lengths[doc_id] / self.avg_doc_length
+                    1 - self.b + self.b * self.doc_lengths[doc_id] / self.avg_doc_length
                 )
                 score = (tf * (self.k1 + 1) / denom) * idf
                 scores[doc_id] = scores.get(doc_id, 0.0) + score
@@ -83,9 +83,9 @@ MODELS_CACHE = str(Path(__file__).parent / ".model_cache")
 MODEL_DIR = str(Path(MODELS_CACHE) / "models--DiTy--bi-encoder-russian-msmarco")
 
 
-os.environ['TRANSFORMERS_CACHE'] = MODELS_CACHE
-os.environ['HF_HOME'] = MODELS_CACHE
-os.environ['HF_HUB_OFFLINE'] = '1'  # Отключить скачивание с интернета
+os.environ["TRANSFORMERS_CACHE"] = MODELS_CACHE
+os.environ["HF_HOME"] = MODELS_CACHE
+os.environ["HF_HUB_OFFLINE"] = "1"  # Отключить скачивание с интернета
 print(MODELS_CACHE)
 
 from sentence_transformers import SentenceTransformer
@@ -373,7 +373,7 @@ class HybridSearcher:
         return MIN_SCORE_LONG_QUERY
 
     def get_effective_max_distance(
-            self, query: str, max_distance: Optional[float]
+        self, query: str, max_distance: Optional[float]
     ) -> float:
         if max_distance is not None:
             return max_distance
@@ -386,10 +386,10 @@ class HybridSearcher:
         return MAX_DISTANCE_LONG_QUERY
 
     def build_where_filter(
-            self,
-            search_categories: Optional[List[str]] = None,
-            price_ranges: Optional[List[str]] = None,
-            seasons: Optional[List[str]] = None,
+        self,
+        search_categories: Optional[List[str]] = None,
+        price_ranges: Optional[List[str]] = None,
+        seasons: Optional[List[str]] = None,
     ) -> Optional[Dict]:
 
         filters = []
@@ -414,17 +414,17 @@ class HybridSearcher:
         return {"$and": filters}
 
     def search(
-            self,
-            query: str,
-            n_results: int = 5,
-            search_categories: Optional[List[str]] = None,
-            price_ranges: Optional[List[str]] = None,
-            seasons: Optional[List[str]] = None,
-            city: Optional[str] = None,
-            user_lat: Optional[float] = None,
-            user_lon: Optional[float] = None,
-            min_score: Optional[float] = None,
-            max_distance: Optional[float] = None,
+        self,
+        query: str,
+        n_results: int = 5,
+        search_categories: Optional[List[str]] = None,
+        price_ranges: Optional[List[str]] = None,
+        seasons: Optional[List[str]] = None,
+        city: Optional[str] = None,
+        user_lat: Optional[float] = None,
+        user_lon: Optional[float] = None,
+        min_score: Optional[float] = None,
+        max_distance: Optional[float] = None,
     ) -> List[Dict]:
 
         print(f"Поиск: '{query}'")

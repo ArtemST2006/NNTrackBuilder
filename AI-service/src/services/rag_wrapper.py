@@ -2,7 +2,7 @@ import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 from rag.scripts.search import HybridSearcher
 
@@ -19,12 +19,19 @@ class RAGWrapper:
         logger.info(f"RAG: init HybridSearcher with db_path={db_path}")
         self._searcher = HybridSearcher(db_path=str(db_path))
 
-    async def search_raw(self, query: str, user_lat: Optional[float] = None, user_lon: Optional[float] = None,
-                         n_results: int = 5) -> List[Dict[str, Any]]:
+    async def search_raw(
+        self,
+        query: str,
+        user_lat: Optional[float] = None,
+        user_lon: Optional[float] = None,
+        n_results: int = 5,
+    ) -> List[Dict[str, Any]]:
         loop = asyncio.get_event_loop()
 
         def _call():
-            return self._searcher.search(query=query, user_lat=user_lat, user_lon=user_lon, n_results=n_results)
+            return self._searcher.search(
+                query=query, user_lat=user_lat, user_lon=user_lon, n_results=n_results
+            )
 
         logger.info(f"RAG: search '{query[:80]}'")
         results = await loop.run_in_executor(_executor, _call)

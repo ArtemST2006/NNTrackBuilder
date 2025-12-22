@@ -2,110 +2,110 @@
   <div class="telegram-auth">
     <div class="container">
       <h2 class="title">🔗 Привязка Telegram аккаунта</h2>
-      
+
       <div v-if="!isAuthenticated" class="auth-form">
         <div class="tabs">
-          <button 
+          <button
             @click="activeTab = 'login'"
             :class="{ active: activeTab === 'login' }"
           >
             Вход
           </button>
-          <button 
+          <button
             @click="activeTab = 'register'"
             :class="{ active: activeTab === 'register' }"
           >
             Регистрация
           </button>
         </div>
-        
+
         <!-- Форма входа -->
         <div v-if="activeTab === 'login'" class="form-section">
           <div class="input-group">
             <label for="email">Email</label>
-            <input 
+            <input
               id="email"
-              v-model="email" 
-              placeholder="your@email.com" 
+              v-model="email"
+              placeholder="your@email.com"
               type="email"
               @keyup.enter="login"
             >
           </div>
-          
+
           <div class="input-group">
             <label for="password">Пароль</label>
-            <input 
+            <input
               id="password"
-              v-model="password" 
-              placeholder="••••••••" 
+              v-model="password"
+              placeholder="••••••••"
               type="password"
               @keyup.enter="login"
             >
           </div>
-          
+
           <button @click="login" class="btn btn-primary" :disabled="loading">
             {{ loading ? 'Вход...' : 'Войти' }}
           </button>
         </div>
-        
+
         <!-- Форма регистрации -->
         <div v-if="activeTab === 'register'" class="form-section">
           <div class="input-group">
             <label for="reg-email">Email</label>
-            <input 
+            <input
               id="reg-email"
-              v-model="regEmail" 
-              placeholder="your@email.com" 
+              v-model="regEmail"
+              placeholder="your@email.com"
               type="email"
             >
           </div>
-          
+
           <div class="input-group">
             <label for="username">Имя пользователя</label>
-            <input 
+            <input
               id="username"
-              v-model="username" 
-              placeholder="Ваше имя" 
+              v-model="username"
+              placeholder="Ваше имя"
               type="text"
             >
           </div>
-          
+
           <div class="input-group">
             <label for="reg-password">Пароль</label>
-            <input 
+            <input
               id="reg-password"
-              v-model="regPassword" 
-              placeholder="Не менее 6 символов" 
+              v-model="regPassword"
+              placeholder="Не менее 6 символов"
               type="password"
             >
           </div>
-          
+
           <button @click="signup" class="btn btn-primary" :disabled="loading">
             {{ loading ? 'Регистрация...' : 'Зарегистрироваться' }}
           </button>
         </div>
-        
+
         <div v-if="error" class="error-message">
           ❌ {{ error }}
         </div>
       </div>
-      
+
       <div v-else class="success-screen">
         <div class="success-icon">✅</div>
         <h3>Успешная авторизация!</h3>
         <p>Вы вошли как: <strong>{{ userEmail }}</strong></p>
-        
+
         <div class="user-info">
           <p>👤 <strong>ID:</strong> {{ userId }}</p>
           <p>🤖 <strong>Telegram ID:</strong> {{ telegramId }}</p>
         </div>
-        
+
         <p class="instruction">
           Нажмите кнопку ниже чтобы отправить данные в бота.
           <br>
           <small>Окно закроется автоматически</small>
         </p>
-        
+
         <button @click="sendToBot" class="btn btn-success">
           Отправить данные в бота
         </button>
@@ -120,46 +120,46 @@ import axios from 'axios'
 
 export default {
   name: 'TelegramAuth',
-  
+
   setup() {
     // Состояние
     const activeTab = ref('login')
     const loading = ref(false)
     const error = ref('')
-    
+
     // Данные для входа
     const email = ref('')
     const password = ref('')
-    
+
     // Данные для регистрации
     const regEmail = ref('')
     const username = ref('')
     const regPassword = ref('')
-    
+
     // Данные после успешной авторизации
     const isAuthenticated = ref(false)
     const userEmail = ref('')
     const token = ref('')
     const userId = ref('')
     const telegramId = ref('')
-    
+
     // Telegram WebApp данные
     const initData = computed(() => {
       return window.Telegram?.WebApp?.initData || ''
     })
-    
+
     onMounted(() => {
       // Инициализация Telegram WebApp
       if (window.Telegram?.WebApp) {
         const tg = window.Telegram.WebApp
         tg.expand()  // Развернуть на весь экран
         tg.ready()   // Сообщить Telegram что WebApp готов
-        
+
         // Получаем Telegram ID пользователя
         if (tg.initDataUnsafe?.user?.id) {
           telegramId.value = tg.initDataUnsafe.user.id.toString()
         }
-        
+
         console.log('Telegram WebApp инициализирован')
         console.log('Telegram ID:', telegramId.value)
         console.log('Init Data:', initData.value)
@@ -169,30 +169,30 @@ export default {
         telegramId.value = 'test_telegram_id'
       }
     })
-    
+
     const login = async () => {
       if (!email.value || !password.value) {
         error.value = 'Заполните email и пароль'
         return
       }
-      
+
       loading.value = true
       error.value = ''
-      
+
       try {
         // Используем API Gateway (а не напрямую User-service)
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-        
+
         // 1. Вход пользователя
         const response = await axios.post(`${apiUrl}/api/sign-in`, {
           email: email.value,
           password: password.value
         })
-        
+
         token.value = response.data.token
         userId.value = response.data.user_id
         userEmail.value = email.value
-        
+
         // 2. Привязываем Telegram ID если он еще не привязан
         if (telegramId.value && !response.data.telegram_id) {
           try {
@@ -201,59 +201,59 @@ export default {
               password: password.value,
               telegram_id: telegramId.value
             })
-            
+
             console.log('✅ Telegram ID привязан')
           } catch (linkError) {
             console.warn('Не удалось привязать Telegram ID:', linkError.message)
           }
         }
-        
+
         isAuthenticated.value = true
-        
+
       } catch (err) {
-        error.value = err.response?.data?.detail || 
-                     err.response?.data?.error || 
+        error.value = err.response?.data?.detail ||
+                     err.response?.data?.error ||
                      'Ошибка подключения к серверу'
         console.error('Ошибка входа:', err)
       } finally {
         loading.value = false
       }
     }
-    
+
     const signup = async () => {
       if (!regEmail.value || !username.value || !regPassword.value) {
         error.value = 'Заполните все поля'
         return
       }
-      
+
       if (regPassword.value.length < 6) {
         error.value = 'Пароль должен быть не менее 6 символов'
         return
       }
-      
+
       loading.value = true
       error.value = ''
-      
+
       try {
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-        
+
         // 1. Регистрация пользователя
         await axios.post(`${apiUrl}/api/sign-up`, {
           email: regEmail.value,
           username: username.value,
           password: regPassword.value
         })
-        
+
         // 2. Автоматический вход после регистрации
         const loginResponse = await axios.post(`${apiUrl}/api/sign-in`, {
           email: regEmail.value,
           password: regPassword.value
         })
-        
+
         token.value = loginResponse.data.token
         userId.value = loginResponse.data.user_id
         userEmail.value = regEmail.value
-        
+
         // 3. Привязываем Telegram ID
         if (telegramId.value) {
           await axios.post(`${apiUrl}/api/link_telegram`, {
@@ -261,26 +261,26 @@ export default {
             password: regPassword.value,
             telegram_id: telegramId.value
           })
-          
+
           console.log('✅ Telegram ID привязан при регистрации')
         }
-        
+
         isAuthenticated.value = true
-        
+
       } catch (err) {
-        error.value = err.response?.data?.detail || 
-                     err.response?.data?.error || 
+        error.value = err.response?.data?.detail ||
+                     err.response?.data?.error ||
                      'Ошибка регистрации'
         console.error('Ошибка регистрации:', err)
       } finally {
         loading.value = false
       }
     }
-    
+
     const sendToBot = () => {
       if (window.Telegram?.WebApp) {
         const tg = window.Telegram.WebApp
-        
+
         // Данные для отправки в бота
         const data = {
           type: 'telegram_auth',
@@ -290,44 +290,44 @@ export default {
           telegram_id: telegramId.value,
           timestamp: Date.now()
         }
-        
+
         console.log('Отправляем данные в бота:', data)
-        
+
         // Отправляем данные обратно в бота
         tg.sendData(JSON.stringify(data))
-        
+
         // Закрываем WebApp через секунду
         setTimeout(() => {
           tg.close()
         }, 1000)
-        
+
       } else {
         console.error('Telegram WebApp не доступен для отправки данных')
         alert('Ошибка: WebApp недоступен')
       }
     }
-    
+
     return {
       // Состояние
       activeTab,
       loading,
       error,
-      
+
       // Данные для входа
       email,
       password,
-      
+
       // Данные для регистрации
       regEmail,
       username,
       regPassword,
-      
+
       // Результат
       isAuthenticated,
       userEmail,
       userId,
       telegramId,
-      
+
       // Методы
       login,
       signup,

@@ -1,12 +1,12 @@
+import asyncio
 import json
 import logging
-import asyncio
+
 from aiokafka import AIOKafkaConsumer
-
-from src.config import KAFKA_BOOTSTRAP, KAFKA_TOPIC_AI_RESPONSE, KAFKA_GROUP_ID, KAFKA_TOPIC_AI_REQUEST
-
-from src.services.handler import handle_message
+from src.config import (KAFKA_BOOTSTRAP, KAFKA_GROUP_ID,
+                        KAFKA_TOPIC_AI_REQUEST, KAFKA_TOPIC_AI_RESPONSE)
 from src.kafka.producer import kafka_producer
+from src.services.handler import handle_message
 
 logger = logging.getLogger(__name__)
 
@@ -17,14 +17,16 @@ class KafkaResponseConsumer:
         self.consumer = None
 
     async def start(self):
-        logger.info(f"CONSUMER: Starting... Topic: {KAFKA_TOPIC_AI_REQUEST}, Group: {KAFKA_GROUP_ID}")
+        logger.info(
+            f"CONSUMER: Starting... Topic: {KAFKA_TOPIC_AI_REQUEST}, Group: {KAFKA_GROUP_ID}"
+        )
 
         self.consumer = AIOKafkaConsumer(
             KAFKA_TOPIC_AI_REQUEST,
             bootstrap_servers=KAFKA_BOOTSTRAP,
             group_id=KAFKA_GROUP_ID,
-            auto_offset_reset='latest',
-            enable_auto_commit=False
+            auto_offset_reset="latest",
+            enable_auto_commit=False,
         )
 
         try:
@@ -38,13 +40,15 @@ class KafkaResponseConsumer:
                 try:
                     if msg.value is None:
                         continue
-                    data = json.loads(msg.value.decode('utf-8'))
+                    data = json.loads(msg.value.decode("utf-8"))
 
                     logger.info(f"CONSUMER: Received message: {data}")
                     await self.process_message(data)
 
                 except json.JSONDecodeError as e:
-                    logger.error(f"CONSUMER: JSON Decode Error (Skipping). Error: {e}. Raw: {msg.value}")
+                    logger.error(
+                        f"CONSUMER: JSON Decode Error (Skipping). Error: {e}. Raw: {msg.value}"
+                    )
 
                 except Exception as e:
                     logger.exception(f"CONSUMER: Error processing message: {e}")
@@ -69,7 +73,6 @@ class KafkaResponseConsumer:
         res = await handle_message(data)
 
         await kafka_producer.send(KAFKA_TOPIC_AI_RESPONSE, res)
-
 
     def stop(self):
         self.running = False

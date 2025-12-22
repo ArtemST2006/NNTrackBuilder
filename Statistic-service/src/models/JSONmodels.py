@@ -1,11 +1,14 @@
-from pydantic import BaseModel, ConfigDict
-from typing import List
 import datetime
+from typing import List
+
+from pydantic import BaseModel, ConfigDict
+
 
 # спросить у дениса
 class PlaceItem(BaseModel):
     coordinates: str
     description: str
+
 
 class AIResponse(BaseModel):
     user_id: int
@@ -21,5 +24,3 @@ class AIResponse(BaseModel):
 
 class StatisticResponse(BaseModel):
     statistic: List[AIResponse]
-
-

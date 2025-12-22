@@ -6,6 +6,7 @@ from src.config import KAFKA_BOOTSTRAP
 
 logger = logging.getLogger(__name__)
 
+
 class KafkaProducer:
     def __init__(self):
         self.producer = None
@@ -13,10 +14,10 @@ class KafkaProducer:
     async def start(self):
         self.producer = AIOKafkaProducer(
             bootstrap_servers=KAFKA_BOOTSTRAP,
-            acks='all',
+            acks="all",
             enable_idempotence=True,
-            value_serializer=lambda v: json.dumps(v).encode('utf-8'),
-            key_serializer=lambda k: k.encode('utf-8') if k else None
+            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+            key_serializer=lambda k: k.encode("utf-8") if k else None,
         )
         await self.producer.start()
 

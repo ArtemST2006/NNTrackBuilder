@@ -1,8 +1,9 @@
+import asyncio
 import json
 import logging
-import asyncio
+
 from aiokafka import AIOKafkaConsumer
-from src.config import KAFKA_BOOTSTRAP, KAFKA_TOPIC_AI_RESPONSE, KAFKA_GROUP_ID
+from src.config import KAFKA_BOOTSTRAP, KAFKA_GROUP_ID, KAFKA_TOPIC_AI_RESPONSE
 from src.managers import manager
 
 logger = logging.getLogger(__name__)
@@ -14,14 +15,16 @@ class KafkaResponseConsumer:
         self.consumer = None
 
     async def start(self):
-        logger.info(f"CONSUMER: Starting... Topic: {KAFKA_TOPIC_AI_RESPONSE}, Group: {KAFKA_GROUP_ID}")
+        logger.info(
+            f"CONSUMER: Starting... Topic: {KAFKA_TOPIC_AI_RESPONSE}, Group: {KAFKA_GROUP_ID}"
+        )
 
         self.consumer = AIOKafkaConsumer(
             KAFKA_TOPIC_AI_RESPONSE,
             bootstrap_servers=KAFKA_BOOTSTRAP,
             group_id=KAFKA_GROUP_ID,
-            auto_offset_reset='latest',
-            enable_auto_commit=False
+            auto_offset_reset="latest",
+            enable_auto_commit=False,
         )
 
         try:
@@ -35,13 +38,15 @@ class KafkaResponseConsumer:
                 try:
                     if msg.value is None:
                         continue
-                    data = json.loads(msg.value.decode('utf-8'))
+                    data = json.loads(msg.value.decode("utf-8"))
 
                     logger.info(f"CONSUMER: Received message: {data}")
                     await self.process_message(data)
 
                 except json.JSONDecodeError as e:
-                    logger.error(f"CONSUMER: JSON Decode Error (Skipping). Error: {e}. Raw: {msg.value}")
+                    logger.error(
+                        f"CONSUMER: JSON Decode Error (Skipping). Error: {e}. Raw: {msg.value}"
+                    )
 
                 except Exception as e:
                     logger.exception(f"CONSUMER: Error processing message: {e}")
@@ -69,9 +74,13 @@ class KafkaResponseConsumer:
             try:
                 await manager.send_message(user_id, data)
             except Exception as e:
-                logger.error(f"CONSUMER: Failed to send to WebSocket user {user_id}: {e}")
+                logger.error(
+                    f"CONSUMER: Failed to send to WebSocket user {user_id}: {e}"
+                )
         else:
-            logger.warning(f"CONSUMER: Message received without user_id: {user_id}! Data: {data}")
+            logger.warning(
+                f"CONSUMER: Message received without user_id: {user_id}! Data: {data}"
+            )
 
     def stop(self):
         self.running = False

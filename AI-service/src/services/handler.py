@@ -1,10 +1,10 @@
 import logging
 import subprocess
-from typing import Dict, Any
+from typing import Any, Dict
 
-from src.services.rag_wrapper import rag_wrapper
-from src.services.rag_utils import convert_rag_results_to_output
 from src.services.gigachat_service import GigachatService
+from src.services.rag_utils import convert_rag_results_to_output
+from src.services.rag_wrapper import rag_wrapper
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
     }
     """
 
-    '''
+    """
     output
     {
           "user_id": user_id,
@@ -53,7 +53,7 @@ async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
           "long": 45.5,
           "advice": "Не забудьте зонтик"
         }
-    '''
+    """
 
     user_id = data.get("user_id")
     task_id = data.get("task_id")
@@ -84,7 +84,9 @@ async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
         )
 
         # 2. RAG
-        rag_results = await rag_wrapper.search_raw(query=query, user_lat=lat, user_lon=lon)
+        rag_results = await rag_wrapper.search_raw(
+            query=query, user_lat=lat, user_lon=lon
+        )
 
         if not rag_results:
             return _error_response(user_id, task_id, "Места не найдены")
@@ -108,10 +110,9 @@ async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
         # GigachatService уже возвращает:
         # { "user_id", "task_id", "output", "description", "time", "long", "advice" }
         route_json["status"] = "ok"
-        route_json["output"].insert(0, {
-            "coordinates": f"{lat}, {lon}",
-            "description": "Мое местоположение"
-        })
+        route_json["output"].insert(
+            0, {"coordinates": f"{lat}, {lon}", "description": "Мое местоположение"}
+        )
 
         return route_json
 

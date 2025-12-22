@@ -1,7 +1,7 @@
 import logging
-from aiogram import Router, types, F
-from aiogram.fsm.context import FSMContext
 
+from aiogram import F, Router, types
+from aiogram.fsm.context import FSMContext
 from states import RouteStates
 from utils.keyboards import get_main_menu_keyboard
 
@@ -35,10 +35,10 @@ async def handle_location_anywhere(message: types.Message, state: FSMContext):
         reply_markup=types.ReplyKeyboardMarkup(
             keyboard=[
                 [types.KeyboardButton(text="🗺️ Создать маршрут отсюда")],
-                [types.KeyboardButton(text="🔙 Главное меню")]
+                [types.KeyboardButton(text="🔙 Главное меню")],
             ],
-            resize_keyboard=True
-        )
+            resize_keyboard=True,
+        ),
     )
 
     await state.update_data(
@@ -46,7 +46,7 @@ async def handle_location_anywhere(message: types.Message, state: FSMContext):
             "type": "coordinates",
             "lat": location.latitude,
             "lon": location.longitude,
-            "text": "геолокация"
+            "text": "геолокация",
         }
     )
 
@@ -59,7 +59,7 @@ async def start_route_from_location(message: types.Message, state: FSMContext):
     if not location:
         await message.answer(
             "📍 Сначала отправьте геолокацию",
-            reply_markup=get_main_menu_keyboard(is_authenticated=False)
+            reply_markup=get_main_menu_keyboard(is_authenticated=False),
         )
         return
 
@@ -79,13 +79,14 @@ async def back_to_main_menu(message: types.Message, state: FSMContext):
     await state.clear()
 
     from services.token_storage import token_storage
+
     telegram_id = message.from_user.id
     token = token_storage.get_token(telegram_id)
     is_authenticated = token is not None
 
     await message.answer(
         "🔙 Возвращаюсь в главное меню...",
-        reply_markup=get_main_menu_keyboard(is_authenticated)
+        reply_markup=get_main_menu_keyboard(is_authenticated),
     )
 
 
@@ -114,10 +115,10 @@ async def handle_address_like_message(message: types.Message, state: FSMContext)
         reply_markup=types.ReplyKeyboardMarkup(
             keyboard=[
                 [types.KeyboardButton(text="🗺️ Создать маршрут отсюда")],
-                [types.KeyboardButton(text="🔙 Главное меню")]
+                [types.KeyboardButton(text="🔙 Главное меню")],
             ],
-            resize_keyboard=True
-        )
+            resize_keyboard=True,
+        ),
     )
 
     await state.update_data(
@@ -125,6 +126,6 @@ async def handle_address_like_message(message: types.Message, state: FSMContext)
             "type": "address",
             "text": message.text,
             "lat": None,
-            "lon": None
+            "lon": None,
         }
     )

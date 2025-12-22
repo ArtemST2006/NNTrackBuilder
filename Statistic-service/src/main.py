@@ -1,14 +1,13 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 import uvicorn
-import asyncio
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from src.api import router as main_router
 from src.config import logger
 from src.kafka.consumer import kafka_consumer
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,6 +27,7 @@ async def lifespan(app: FastAPI):
             logger.info("Consumer task successfully cancelled")
     logger.info("shutdown complete.")
 
+
 app = FastAPI(lifespan=lifespan)
 app.include_router(main_router)
 
@@ -40,11 +40,6 @@ app.add_middleware(
 )
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "src.main:app",
-        host="0.0.0.0",
-        port=8002,
-        reload=True
-    )
+    uvicorn.run("src.main:app", host="0.0.0.0", port=8002, reload=True)
     if not kafka_consumer.done():
         kafka_consumer.cancel()

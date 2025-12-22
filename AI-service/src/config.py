@@ -19,5 +19,6 @@ GIGACHAT_SCOPE = os.getenv("GIGACHAT_SCOPE", "GIGACHAT_API_PERS")
 GIGACHAT_MODEL = os.getenv("GIGACHAT_MODEL", "GigaChat-2")
 
 # Проверка сертификатов (для dev можно False, для prod лучше True)
-GIGACHAT_VERIFY_SSL_CERTS = os.getenv("GIGACHAT_VERIFY_SSL_CERTS", "False").lower() == "true"
-
+GIGACHAT_VERIFY_SSL_CERTS = (
+    os.getenv("GIGACHAT_VERIFY_SSL_CERTS", "False").lower() == "true"
+)

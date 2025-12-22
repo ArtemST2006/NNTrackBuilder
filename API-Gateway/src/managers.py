@@ -1,5 +1,7 @@
 from typing import Dict
+
 from fastapi import WebSocket
+
 
 class ConnectionManager:
     def __init__(self):
@@ -24,5 +26,6 @@ class ConnectionManager:
                 self.disconnect(user_id)
         else:
             print(f"User {user_id} not found in active connections")
+
 
 manager = ConnectionManager()

@@ -16,7 +16,7 @@ QUERIES = [
     "запрет",
     "Пушкин",
     "погулять с детьми",
-    "фдыыдрва паррк"
+    "фдыыдрва паррк",
 ]
 
 DB_PATH = ROOT / "chroma_db"
@@ -27,7 +27,6 @@ def main() -> None:
     if not DB_PATH.exists():
         print(f"chroma_db не найден по пути: {DB_PATH}")
         return
-
 
     try:
         searcher = HybridSearcher(db_path=str(DB_PATH))

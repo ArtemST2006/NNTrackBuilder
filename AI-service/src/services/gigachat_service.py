@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from typing import List, Dict, Any, Optional, Tuple
 import json
 import logging
-import time
 import re
+import time
+from typing import Any
 
 from gigachat import GigaChat
 from src.config import (
     GIGACHAT_CREDENTIALS,
-    GIGACHAT_SCOPE,
     GIGACHAT_MODEL,
+    GIGACHAT_SCOPE,
     GIGACHAT_VERIFY_SSL_CERTS,
 )
 
@@ -63,11 +63,11 @@ class GigachatService:
         )
 
     def _build_user_prompt(
-        self,
-        points: List[Dict[str, str]],
-        user_id: int,
-        task_id: str,
-        city_hint: Optional[str] = None,
+            self,
+            points: list[dict[str, str]],
+            user_id: int,
+            task_id: str,
+            city_hint: str | None = None,
     ) -> str:
         points_block = "\n".join(
             f"- coordinates: {p.get('coordinates')}, description: {p.get('description')}"
@@ -102,7 +102,7 @@ class GigachatService:
             f"{raw_text}"
         )
 
-    async def _call_gigachat(self, messages: List[Dict[str, str]]) -> str:
+    async def _call_gigachat(self, messages: list[dict[str, str]]) -> str:
         giga = GigaChat(
             credentials=GIGACHAT_CREDENTIALS,
             verify_ssl_certs=GIGACHAT_VERIFY_SSL_CERTS,
@@ -125,7 +125,7 @@ class GigachatService:
         return raw_content
 
     @staticmethod
-    def _extract_json_object(text: str) -> Dict[str, Any]:
+    def _extract_json_object(text: str) -> dict[str, Any]:
         """
         Достаём JSON-объект:
         1) пробуем обычный json.loads
@@ -156,7 +156,7 @@ class GigachatService:
         start = text.find("{")
         end = text.rfind("}")
         if start != -1 and end != -1 and end > start:
-            cut = text[start : end + 1]
+            cut = text[start: end + 1]
             try:
                 obj = json.loads(cut)
                 if isinstance(obj, dict):
@@ -167,7 +167,7 @@ class GigachatService:
         raise ValueError("Ответ модели не похож на JSON-объект. Ответ:\n" + text)
 
     @staticmethod
-    def _validate_input_points(points: List[Dict[str, str]]) -> None:
+    def _validate_input_points(points: list[dict[str, str]]) -> None:
         if not points:
             raise ValueError("Список points пуст — передайте хотя бы одну точку.")
 
@@ -177,12 +177,12 @@ class GigachatService:
 
     @staticmethod
     def _validate_and_normalize_output(
-        data: Dict[str, Any],
-        *,
-        input_points: List[Dict[str, str]],
-        user_id: int,
-        task_id: str,
-    ) -> Dict[str, Any]:
+            data: dict[str, Any],
+            *,
+            input_points: list[dict[str, str]],
+            user_id: int,
+            task_id: str,
+    ) -> dict[str, Any]:
 
         required_root_keys = {"user_id", "task_id", "output", "description", "time", "long", "advice"}
         missing = required_root_keys - set(data.keys())
@@ -193,7 +193,7 @@ class GigachatService:
             raise ValueError("'output' должен быть списком, получено: " + repr(data["output"]))
 
         # Жёсткая проверка: модель не имеет права придумывать/менять точки
-        allowed: set[Tuple[str, str]] = {
+        allowed: set[tuple[str, str]] = {
             (p["coordinates"], p["description"]) for p in input_points
         }
 
@@ -218,12 +218,12 @@ class GigachatService:
         return data
 
     async def build_route(
-        self,
-        points: List[Dict[str, str]],
-        user_id: int,
-        task_id: str,
-        city_hint: Optional[str] = None,
-    ) -> Dict[str, Any]:
+            self,
+            points: list[dict[str, str]],
+            user_id: int,
+            task_id: str,
+            city_hint: str | None = None,
+    ) -> dict[str, Any]:
         self._validate_input_points(points)
 
         logger.info(

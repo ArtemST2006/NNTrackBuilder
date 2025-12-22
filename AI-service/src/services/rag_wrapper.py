@@ -34,6 +34,3 @@ class RAGWrapper:
     def shutdown(self):
         _executor.shutdown(wait=True)
         logger.info("RAG: executor shutdown")
-
-
-rag_wrapper = RAGWrapper()

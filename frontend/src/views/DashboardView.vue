@@ -7,16 +7,7 @@
         <h2 class="title">{{ resultData.description }}</h2>
         <div class="subtitle">Маршрут готов!</div>
 
-        <div class="stats-grid">
-          <div class="stat-box">
-            <span class="stat-label">Время</span>
-            <span class="stat-value">{{ resultData.time }} ч.</span>
-          </div>
-          <div class="stat-box">
-            <span class="stat-label">Расстояние</span>
-            <span class="stat-value">{{ resultData.long }} км</span>
-          </div>
-        </div>
+
 
         <div class="advice-box">
           <div class="advice-icon">💡</div>

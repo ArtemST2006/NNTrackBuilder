@@ -9,7 +9,7 @@ from typing import Optional
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.services.rag_wrapper import RAGWrapper
+from src.services.rag_wrapper import RAGWrapper, rag_wrapper
 
 from src.kafka.producer import kafka_producer
 from src.kafka.consumer import kafka_consumer
@@ -57,7 +57,7 @@ async def run() -> None:
     try:
         await consumer_task
     finally:
-        await _shutdown(consumer_task)
+        await _shutdown(consumer_task, rag_wrapper)
 
 
 def main() -> None:

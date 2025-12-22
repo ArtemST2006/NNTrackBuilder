@@ -527,6 +527,9 @@ const onSubmit = async () => {
     currentTaskId.value = resp.data.task_id
     message.value = `Запрос принят. Генерация маршрута...`
 
+    category.value = []
+    customInterest.value = ''
+
     // Таймер
     requestTimeoutId.value = setTimeout(() => {
       loading.value = false

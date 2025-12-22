@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT))
 
-from scripts.search import HybridSearcher
+from rag.scripts.search import HybridSearcher
 
 QUERIES = [
     "парки",

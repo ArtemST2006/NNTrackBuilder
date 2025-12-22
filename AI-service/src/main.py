@@ -9,6 +9,8 @@ from typing import Optional
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+from src.services.rag_wrapper import rag_wrapper, RAGWrapper
+
 from src.kafka.producer import kafka_producer
 from src.kafka.consumer import kafka_consumer
 
@@ -21,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger("ai-service")
 
 
-async def _shutdown(consumer_task: asyncio.Task) -> None:
+async def _shutdown(consumer_task: asyncio.Task, rag: RAGWrapper) -> None:
     logger.info("Shutdown: stopping consumer...")
     kafka_consumer.stop()
 
@@ -33,6 +35,13 @@ async def _shutdown(consumer_task: asyncio.Task) -> None:
 
     logger.info("Shutdown: stopping producer...")
     await kafka_producer.stop()
+
+    rag.shutdown()
+
+    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    [task.cancel() for task in tasks]
+    await asyncio.gather(*tasks, return_exceptions=True)
+
     logger.info("Shutdown complete.")
 
 

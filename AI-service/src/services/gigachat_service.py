@@ -102,7 +102,14 @@ class GigachatService:
             f"{raw_text}"
         )
 
-    async def _call_gigachat(self, messages: List[Dict[str, str]]) -> str:
+    async def _call_gigachat(
+            self,
+            messages: List[Dict[str, str]],
+            *,
+            temperature: float | None = None,
+            top_p: float | None = None,
+            max_tokens: int | None = None,
+    ) -> str:
         giga = GigaChat(
             credentials=GIGACHAT_CREDENTIALS,
             verify_ssl_certs=GIGACHAT_VERIFY_SSL_CERTS,
@@ -111,18 +118,25 @@ class GigachatService:
             async_mode=True,
         )
 
+        payload: Dict[str, Any] = {"messages": messages}
+        if temperature is not None:
+            payload["temperature"] = float(temperature)
+        if top_p is not None:
+            payload["top_p"] = float(top_p)
+        if max_tokens is not None:
+            payload["max_tokens"] = int(max_tokens)
+
         async with giga as client:
             try:
-                response = await client.achat(messages=messages)
-            except TypeError:
-                response = await client.achat({"messages": messages})
+                try:
+                    response = await client.achat(**payload)
+                except TypeError:
+                    response = await client.achat(payload)
             except Exception as e:
                 logger.exception("Ошибка при обращении к GigaChat: %s", e)
                 raise
 
-        raw_content = response.choices[0].message.content
-        logger.debug("Ответ GigaChat (сырое содержимое): %s", raw_content)
-        return raw_content
+        return response.choices[0].message.content
 
     @staticmethod
     def _extract_json_object(text: str) -> Dict[str, Any]:
@@ -242,7 +256,7 @@ class GigachatService:
 
         start_time = time.monotonic()
 
-        raw_content = await self._call_gigachat(messages)
+        raw_content = await self._call_gigachat(messages, temperature=0.2)
 
         elapsed = time.monotonic() - start_time
         logger.info(
@@ -262,7 +276,7 @@ class GigachatService:
                 {"role": "system", "content": self.REPAIR_INSTRUCTION},
                 {"role": "user", "content": self._build_repair_prompt(raw_content)},
             ]
-            repaired_content = await self._call_gigachat(repair_messages)
+            repaired_content = await self._call_gigachat(repair_messages, temperature=0.0)
             data = self._extract_json_object(repaired_content)
         data = self._validate_and_normalize_output(
             data,

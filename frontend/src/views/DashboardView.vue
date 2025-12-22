@@ -1,8 +1,43 @@
 <template>
   <section class="page dashboard">
     <div class="dashboard-left">
-      <!-- 1. МАСТЕР СОЗДАНИЯ ЗАПРОСА -->
-      <div class="card wizard-card">
+
+      <!-- 1. РЕЗУЛЬТАТ (Показываем, если пришли данные по сокету) -->
+      <div v-if="resultData" class="card result-card">
+        <h2 class="title">{{ resultData.description }}</h2>
+        <div class="subtitle">Маршрут готов!</div>
+
+        <div class="stats-grid">
+          <div class="stat-box">
+            <span class="stat-label">Время</span>
+            <span class="stat-value">{{ resultData.time }} ч.</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Расстояние</span>
+            <span class="stat-value">{{ resultData.long }} км</span>
+          </div>
+        </div>
+
+        <div class="advice-box">
+          <div class="advice-icon">💡</div>
+          <div class="advice-text">{{ resultData.advice }}</div>
+        </div>
+
+        <div class="route-list-title">Точки маршрута:</div>
+        <ul class="route-list">
+          <li v-for="(point, idx) in resultData.output" :key="idx" class="route-item">
+            <span class="point-number">{{ idx + 1 }}.</span>
+            <span class="point-desc">{{ point.description }}</span>
+          </li>
+        </ul>
+
+        <button class="btn primary full-width" @click="resetToWizard">
+          Вернуться к созданию
+        </button>
+      </div>
+
+      <!-- 2. МАСТЕР СОЗДАНИЯ ЗАПРОСА (Скрываем, если есть результат) -->
+      <div v-else class="card wizard-card">
         <h2 class="title">
           <span v-if="step === 1">Выберите, что вам интересно</span>
           <span v-else-if="step === 2">Сколько времени у вас есть?</span>
@@ -120,10 +155,10 @@
         </form>
       </div>
 
-      <!-- 2. СТАТИСТИКА / ИСТОРИЯ -->
-      <div class="card stats-card">
+      <!-- 3. СТАТИСТИКА / ИСТОРИЯ (Показываем только если не в режиме результата) -->
+      <div v-if="!resultData" class="card stats-card">
         <div class="card-header">
-          <h3 class="subtitle">История маршрутов</h3>
+          <h3 class="subtitle" style="margin:0">История маршрутов</h3>
           <button class="btn-icon" @click="fetchStatistics" title="Обновить">🔄</button>
         </div>
 
@@ -138,47 +173,34 @@
             </div>
 
             <div class="stat-desc">{{ stat.description }}</div>
-            <div class="stat-advice">💡 {{ stat.advice }}</div>
-
-            <details class="stat-details">
-              <summary>Точки маршрута ({{ stat.output.length }})</summary>
-              <ul class="places-list">
-                <li v-for="(point, idx) in stat.output" :key="idx">
-                  {{ point.description }}
-                </li>
-              </ul>
-            </details>
-
-            <button class="btn small outline full-width" @click="showOnMap(stat.output)">
+            <!-- Кнопка "Показать на карте" теперь вызывает функцию для Яндекса -->
+            <button class="btn small outline full-width" @click="drawRouteOnYandexMap(stat.output)">
               🗺 Показать на карте
             </button>
           </div>
         </div>
       </div>
 
-      <!-- 3. WEBSOCKET STATUS -->
-      <div class="card">
-        <h3 class="subtitle">WebSocket статус</h3>
-        <p>Подключение: <strong>{{ socketStatus }}</strong></p>
-        <ul class="log">
-          <li v-for="(msg, idx) in socketMessages" :key="idx">{{ msg }}</li>
-        </ul>
+       <!-- Логи вебсокета (для отладки) -->
+       <div class="card" v-if="!resultData">
+        <h3 class="subtitle" style="margin-bottom:0.5rem">WebSocket Debug</h3>
+        <p style="font-size: 0.8rem">Status: <strong>{{ socketStatus }}</strong></p>
       </div>
+
     </div>
 
     <div class="dashboard-right">
-      <div id="map" class="map-container"></div>
+      <!-- Контейнер для Яндекс Карты -->
+      <div id="yandex-map" class="map-container"></div>
     </div>
   </section>
 </template>
 
 <script setup>
-import { onMounted, onBeforeUnmount, ref } from 'vue'
+import { onMounted, onBeforeUnmount, ref, watch, nextTick } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { storeToRefs } from 'pinia'
 import { api } from '../services/http'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
 
 const auth = useAuthStore()
 const { socketStatus, socketMessages } = storeToRefs(auth)
@@ -194,6 +216,11 @@ const startMode = ref('geo')
 const loading = ref(false)
 const error = ref(null)
 const message = ref(null)
+const currentTaskId = ref(null)
+const resultData = ref(null)
+
+// --- NEW: Переменная для хранения таймера ---
+const requestTimeoutId = ref(null)
 
 const interestOptions = [
   { id: 'cafes', label: 'Кофейни', icon: '☕' },
@@ -235,6 +262,23 @@ const addCustomInterest = () => {
   }
 }
 
+// Сброс к форме
+const resetToWizard = () => {
+  // --- NEW: Очищаем таймер при ручном сбросе ---
+  if (requestTimeoutId.value) clearTimeout(requestTimeoutId.value)
+
+  resultData.value = null
+  step.value = 1
+  message.value = null
+  error.value = null
+  currentTaskId.value = null
+  loading.value = false // На всякий случай сбрасываем лоадер
+
+  if (mapInstance) {
+    mapInstance.geoObjects.removeAll()
+  }
+}
+
 // --- Логика Статистики ---
 const statistics = ref([])
 const statsLoading = ref(false)
@@ -247,7 +291,6 @@ const fetchStatistics = async () => {
       params: { user_id: auth.user.user_id },
       headers: { Authorization: `Bearer ${auth.token}` }
     })
-
     statistics.value = resp.data.statistic || []
   } catch (e) {
     console.error('Ошибка получения статистики', e)
@@ -264,45 +307,131 @@ const formatDate = (dateStr) => {
   }).format(date)
 }
 
-// --- Логика Карты ---
-let mapInstance = null
-let currentMarkers = []
+// --- Логика WebSocket Listener ---
+watch(socketMessages, (newMessages) => {
+  if (!newMessages || newMessages.length === 0) return
 
-const initMap = () => {
-  mapInstance = L.map('map').setView([55.751244, 37.618423], 10)
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '© OpenStreetMap contributors'
-  }).addTo(mapInstance)
+  const lastMsg = newMessages[newMessages.length - 1]
+
+  let data = lastMsg
+  if (typeof lastMsg === 'string') {
+    try {
+      data = JSON.parse(lastMsg)
+    } catch (e) {
+      return
+    }
+  }
+
+  // Проверяем, относится ли сообщение к нашей текущей задаче
+  if (data && data.task_id && data.task_id === currentTaskId.value) {
+
+    // --- ВАРИАНТ 1: УСПЕХ (пришли данные output) ---
+    if (data.output) {
+      // 1. Останавливаем таймер
+      if (requestTimeoutId.value) clearTimeout(requestTimeoutId.value)
+
+      loading.value = false
+      resultData.value = data
+      message.value = 'Маршрут построен!'
+
+      nextTick(() => {
+        drawRouteOnYandexMap(data.output)
+      })
+    }
+
+    // --- ВАРИАНТ 2: ОШИБКА (пришел status: error) ---
+    else if (data.status === 'error') {
+      // 1. Останавливаем таймер
+      if (requestTimeoutId.value) clearTimeout(requestTimeoutId.value)
+
+      loading.value = false
+      // Показываем текст ошибки из сервера или дефолтный
+      error.value = data.error || 'Ошибка генерации маршрута'
+      message.value = null
+      currentTaskId.value = null // Сбрасываем ID задачи, чтобы можно было отправить снова
+    }
+  }
+}, { deep: true })
+
+
+// --- Логика Яндекс Карт ---
+let mapInstance = null
+
+const initYandexMap = () => {
+  ymaps.ready(() => {
+    mapInstance = new ymaps.Map("yandex-map", {
+      center: [56.326887, 44.005986],
+      zoom: 12,
+      controls: ['zoomControl', 'fullscreenControl']
+    })
+  })
 }
 
-const showOnMap = (places) => {
-  if (!mapInstance) return
+// Функция построения реального маршрута через Yandex MultiRouter
+const drawRouteOnYandexMap = (places) => {
+  if (!mapInstance || !window.ymaps) return
 
-  // Очищаем старые маркеры
-  currentMarkers.forEach(m => mapInstance.removeLayer(m))
-  currentMarkers = []
+  // 1. Очищаем карту от старых маршрутов
+  mapInstance.geoObjects.removeAll()
 
-  if (!places || !places.length) return
+  // 2. Собираем координаты
+  const points = places.map(place =>
+    place.coordinates.split(',').map(s => parseFloat(s.trim()))
+  )
 
-  const bounds = []
-
-  places.forEach(p => {
-    // coordinates приходит строкой "lat, long"
-    const [lat, lng] = p.coordinates.split(',').map(Number)
-    if (!isNaN(lat) && !isNaN(lng)) {
-      const marker = L.marker([lat, lng])
-        .addTo(mapInstance)
-        .bindPopup(p.description)
-
-      currentMarkers.push(marker)
-      bounds.push([lat, lng])
+  // 3. Создаем маршрут
+  const multiRoute = new ymaps.multiRouter.MultiRoute({
+    referencePoints: points,
+    params: {
+      routingMode: 'pedestrian' // Пешеходный маршрут
     }
+  }, {
+    boundsAutoApply: true, // Автозум
+    // Цвет линии маршрута
+    routeActiveStrokeColor: "#0000FF",
+    routeActiveStrokeWidth: 4,
+    // Скрываем стандартные метки (A, B...), так как мы их перенастроим ниже
+    wayPointVisible: true
   })
 
-  if (bounds.length) {
-    mapInstance.fitBounds(bounds, { padding: [50, 50] })
-  }
+  // 4. Настраиваем точки ПОСЛЕ того, как Яндекс их расставит
+  multiRoute.model.events.add('requestsuccess', function() {
+    const wayPoints = multiRoute.getWayPoints();
+
+    // Проходимся по всем точкам маршрута
+    wayPoints.each((point, index) => {
+      const placeData = places[index];
+
+      if (placeData) {
+        // --- НАСТРОЙКА КОНТЕНТА ---
+        point.properties.set({
+          // Цифра внутри кружка (1, 2, 3...)
+          iconContent: index + 1,
+
+          // Подпись РЯДОМ с меткой (название места)
+          iconCaption: placeData.description,
+
+          // Текст при НАВЕДЕНИИ мыши (Hint)
+          hintContent: placeData.description,
+
+          // Текст при КЛИКЕ (Balloon)
+          balloonContentHeader: `Точка №${index + 1}`,
+          balloonContentBody: placeData.description
+        });
+
+        // --- НАСТРОЙКА ВНЕШНЕГО ВИДА ---
+        point.options.set({
+          // Используем стиль "Кружок", чтобы цифра поместилась внутри
+          // islands#blueCircleIcon - синий круг
+          // islands#redCircleIcon - красный круг (можно поменять цвет)
+          preset: 'islands#blueCircleIcon'
+        });
+      }
+    });
+  });
+
+  // 5. Добавляем на карту
+  mapInstance.geoObjects.add(multiRoute)
 }
 
 // --- Логика Геолокации ---
@@ -327,12 +456,37 @@ const onSubmit = async () => {
   loading.value = true
   error.value = null
   message.value = null
+
+  // --- NEW: Сбрасываем старый таймер если вдруг он есть ---
+  if (requestTimeoutId.value) clearTimeout(requestTimeoutId.value)
+
   try {
     if (customInterest.value.trim()) addCustomInterest()
+
     await fillCoordsFromGeolocation()
 
+    let finalCategories = []
+    const isAllSelected = category.value.includes('all')
+
+    if (isAllSelected) {
+      const standardLabels = interestOptions
+        .filter(opt => opt.id !== 'all')
+        .map(opt => opt.label)
+
+      const customInputValues = category.value.filter(val =>
+        val !== 'all' && !interestOptions.some(opt => opt.id === val)
+      )
+      finalCategories = [...standardLabels, ...customInputValues]
+
+    } else {
+      finalCategories = category.value.map(selectedId => {
+        const option = interestOptions.find(opt => opt.id === selectedId)
+        return option ? option.label : selectedId
+      })
+    }
+
     const payload = {
-      category: category.value,
+      category: finalCategories,
       time: time.value,
       cords: cords.value,
       place: place.value
@@ -341,47 +495,63 @@ const onSubmit = async () => {
     const resp = await api.post('/api/predict', payload, {
       headers: { Authorization: `Bearer ${auth.token}` }
     })
-    message.value = `Запрос принят. Ждем ответа... (Task: ${resp.data.task_id})`
+
+    currentTaskId.value = resp.data.task_id
+    message.value = `Запрос принят. Генерация маршрута...`
+
+    // --- NEW: Запускаем таймер на 2 минуты (120 000 мс) ---
+    requestTimeoutId.value = setTimeout(() => {
+      // Код, который выполнится, если время вышло
+      loading.value = false
+      error.value = 'Время ожидания истекло (2 мин). Сервер перегружен или недоступен.'
+      message.value = null
+      currentTaskId.value = null // Перестаем ждать этот task_id
+    }, 120000)
+
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Ошибка'
-  } finally {
+    console.error(err)
+    error.value = err.response?.data?.detail || 'Ошибка при отправке запроса'
     loading.value = false
+    // Если произошла ошибка при POST запросе, таймер не нужен
+    if (requestTimeoutId.value) clearTimeout(requestTimeoutId.value)
   }
 }
 
 onMounted(() => {
-  initMap()
+  if (!window.ymaps) {
+    const script = document.createElement('script')
+    script.src = "https://api-maps.yandex.ru/2.1/?apikey=025b0277-5f19-4329-9ce5-76abf3790103&lang=ru_RU"
+    script.onload = initYandexMap
+    document.head.appendChild(script)
+  } else {
+    initYandexMap()
+  }
+
   if (auth.isAuthenticated && auth.user?.user_id) {
     auth.connectWebSocket(auth.user.user_id)
-    fetchStatistics() // Загружаем историю при входе
+    fetchStatistics()
   }
 })
 
 onBeforeUnmount(() => {
-  if (mapInstance) mapInstance.remove()
+  if (mapInstance) {
+    mapInstance.destroy()
+  }
+  // --- NEW: Очистка таймера при удалении компонента ---
+  if (requestTimeoutId.value) {
+    clearTimeout(requestTimeoutId.value)
+  }
 })
 </script>
 
 <style scoped>
-/* Стили Wizard остались прежними (сокращено для читаемости) */
-.wizard-card { max-width: 480px; }
-.steps { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; font-size: 0.8rem; color: #9ca3af; }
-.step { padding: 0.25rem 0.5rem; border-radius: 999px; border: 1px solid transparent; }
-.step.active { border-color: #3b82f6; color: #111827; }
-.grid-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
-.option-card { border-radius: 0.9rem; border: 1px solid #e5e7eb; background: white; padding: 0.6rem 0.7rem; display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.9rem; }
-.option-card.selected { border-color: #3b82f6; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25); }
-.stack-options { display: flex; flex-direction: column; gap: 0.5rem; }
-.hint-box { border-radius: 0.8rem; border: 1px solid #fee2e2; background: #fef2f2; padding: 0.5rem 0.7rem; display: flex; gap: 0.5rem; font-size: 0.85rem; }
-.hint-text { color: #b91c1c; }
-.actions-row { display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 1rem; }
-
+/* Глобальные стили лэйаута */
 .dashboard {
   display: grid;
   grid-template-columns: 360px minmax(0, 1fr);
   gap: 1.5rem;
   height: calc(100vh - 80px);
-  color: #000000; /* Глобальный черный цвет */
+  color: #000000;
 }
 
 .dashboard-left {
@@ -396,7 +566,7 @@ onBeforeUnmount(() => {
   border-radius: 1rem;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.25);
-  background: #f1f5f9; /* Светлый фон для карты, если карта не загрузится */
+  background: #f1f5f9;
 }
 
 .map-container {
@@ -411,285 +581,110 @@ onBeforeUnmount(() => {
   padding: 1.5rem;
   border: 1px solid #e2e8f0;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  color: #000000; /* Чёрный текст внутри карточек */
+  color: #000000;
 }
 
-.wizard-card {
-  max-width: 480px;
-}
+.wizard-card { max-width: 480px; }
+.result-card { max-width: 480px; animation: fadeIn 0.3s ease-out; }
 
-/* --- ЗАГОЛОВКИ И ТЕКСТ --- */
+/* --- ЗАГОЛОВКИ --- */
 .title {
   font-size: 1.25rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
-  color: #000000; /* Чёрный заголовок */
+  color: #000000;
   line-height: 1.3;
 }
-
 .subtitle {
-  color: #1a1a1a; /* Почти чёрный для подзаголовков */
+  color: #1a1a1a;
   font-size: 0.95rem;
   margin-bottom: 1.5rem;
 }
 
-/* --- ШАГИ --- */
-.steps {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-  font-size: 0.8rem;
-  color: #4b5563;
-}
-
-/* --- ОПЦИИ (КНОПКИ ВЫБОРА) --- */
-.grid-options {
+/* --- Стили для RESULT CARD (Новые) --- */
+.stats-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-}
-
-.option-card {
-  border-radius: 0.9rem;
-  border: 1px solid #e5e7eb;
-  background: white;
-  padding: 0.6rem 0.7rem;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  cursor: pointer;
-  font-size: 0.9rem;
-  color: #000000; /* Чёрный текст в кнопках */
-  transition: all 0.2s;
-}
-
-.option-card:hover {
-  background: #f8fafc;
-}
-
-.option-card.selected {
-  border-color: #000000;
-  background: #f0f9ff;
-  color: #000000;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.option-title {
-  font-weight: 600;
-}
-
-.stack-options {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.option-card.wide {
-  justify-content: flex-start;
-}
-
-.option-subtitle {
-  font-size: 0.8rem;
-  color: #444; /* Темно-серый для описания кнопок */
-}
-
-/* --- ПОЛЯ ВВОДА --- */
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #000000;
-}
-
-input {
-  padding: 0.6rem;
-  border-radius: 0.5rem;
-  border: 1px solid #cbd5e1;
-  font-size: 1rem;
-  color: #000000; /* Чёрный текст ввода */
-  background: #fff;
-}
-
-input:focus {
-  outline: none;
-  border-color: #000000;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
-}
-
-/* --- ПОДСКАЗКИ И СООБЩЕНИЯ --- */
-.hint-box {
-  border-radius: 0.8rem;
-  border: 1px solid #e0e7ff;
-  background: #eef2ff;
-  padding: 0.5rem 0.7rem;
-  display: flex;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-  margin-bottom: 1rem;
-}
-
-.hint-text {
-  color: #000000;
-}
-
-.error-text {
-  color: #dc2626;
-  font-size: 0.9rem;
-  margin-top: 0.5rem;
-  font-weight: 500;
-}
-
-.success-text {
-  color: #16a34a;
-  font-size: 0.9rem;
-  margin-top: 0.5rem;
-  font-weight: 500;
-}
-
-/* --- КНОПКИ ДЕЙСТВИЙ --- */
-.actions-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 1.5rem;
-}
-
-.btn {
-  padding: 0.6rem 1.2rem;
-  border-radius: 0.5rem;
-  border: none;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.9rem;
-  transition: opacity 0.2s;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn.primary {
-  background: #000000; /* Чёрная кнопка */
-  color: white;
-}
-
-.btn.primary:hover:not(:disabled) {
-  background: #333333;
-}
-
-.btn.outline {
-  background: transparent;
-  border: 1px solid #cbd5e1;
-  color: #000000;
-}
-
-.btn.outline:hover:not(:disabled) {
-  background: #f1f5f9;
-}
-
-/* --- СТАТИСТИКА (ИСТОРИЯ) --- */
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.stats-card .subtitle {
-  margin-bottom: 0;
-  font-weight: 700;
-  color: #000000;
-}
-
-.btn-icon {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 1.2rem;
-}
-
-.loading-text, .empty-text {
-  text-align: center;
-  color: #666;
-  padding: 1rem;
-}
-
-.stats-list {
-  display: flex;
-  flex-direction: column;
+  grid-template-columns: 1fr 1fr;
   gap: 1rem;
-  max-height: 400px;
-  overflow-y: auto;
+  margin-bottom: 1.5rem;
 }
-
-.stat-item {
+.stat-box {
+  background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
-  padding: 1rem;
-  background: #ffffff; /* Белый фон */
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-
-.stat-header {
+  border-radius: 0.8rem;
+  padding: 0.8rem;
   display: flex;
-  justify-content: space-between;
-  font-size: 0.85rem;
-  color: #333; /* Темно-серый для даты */
+  flex-direction: column;
+  align-items: center;
+}
+.stat-label { font-size: 0.8rem; color: #64748b; margin-bottom: 0.2rem; }
+.stat-value { font-size: 1.1rem; font-weight: 700; color: #000; }
+
+.advice-box {
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-radius: 0.8rem;
+  padding: 1rem;
+  display: flex;
+  gap: 0.8rem;
+  margin-bottom: 1.5rem;
+  align-items: flex-start;
+}
+.advice-icon { font-size: 1.2rem; }
+.advice-text { font-size: 0.9rem; line-height: 1.4; color: #1e3a8a; }
+
+.route-list-title { font-weight: 700; margin-bottom: 0.5rem; }
+.route-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem 0;
+}
+.route-item {
+  display: flex;
+  gap: 0.5rem;
   margin-bottom: 0.5rem;
-  font-weight: 500;
+  font-size: 0.95rem;
 }
+.point-number { font-weight: 600; color: #64748b; min-width: 20px; }
+.full-width { width: 100%; margin-top: 1rem; }
 
-.stat-desc {
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-  color: #000000; /* Чёрное название маршрута */
-  font-size: 1rem;
-}
 
-.stat-advice {
-  font-size: 0.9rem;
-  color: #000000;
-  background: #f3f4f6;
-  padding: 0.5rem;
-  border-radius: 0.4rem;
-  margin-bottom: 0.8rem;
-  border-left: 3px solid #000;
-}
+/* --- ОСТАЛЬНЫЕ СТИЛИ (Из вашего кода) --- */
+.steps { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; font-size: 0.8rem; color: #4b5563; }
+.grid-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+.option-card { border-radius: 0.9rem; border: 1px solid #e5e7eb; background: white; padding: 0.6rem 0.7rem; display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.9rem; color: #000; transition: all 0.2s; }
+.option-card:hover { background: #f8fafc; }
+.option-card.selected { border-color: #000000; background: #f0f9ff; color: #000000; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); }
+.option-title { font-weight: 600; }
+.stack-options { display: flex; flex-direction: column; gap: 0.5rem; }
+.option-card.wide { justify-content: flex-start; }
+.option-subtitle { font-size: 0.8rem; color: #444; }
 
-.stat-details {
-  font-size: 0.9rem;
-  margin-bottom: 0.8rem;
-  color: #000000;
-}
+.field { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.9rem; font-weight: 500; color: #000; }
+input { padding: 0.6rem; border-radius: 0.5rem; border: 1px solid #cbd5e1; font-size: 1rem; color: #000; background: #fff; }
+input:focus { outline: none; border-color: #000; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1); }
 
-.places-list {
-  padding-left: 1.2rem;
-  margin-top: 0.5rem;
-  color: #000000; /* Список мест чёрным */
-  line-height: 1.5;
-}
+.hint-box { border-radius: 0.8rem; border: 1px solid #e0e7ff; background: #eef2ff; padding: 0.5rem 0.7rem; display: flex; gap: 0.5rem; font-size: 0.85rem; margin-bottom: 1rem; }
+.hint-text { color: #000; }
+.error-text { color: #dc2626; font-size: 0.9rem; margin-top: 0.5rem; font-weight: 500; }
+.success-text { color: #16a34a; font-size: 0.9rem; margin-top: 0.5rem; font-weight: 500; }
 
-.full-width {
-  width: 100%;
-}
+.actions-row { display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 1.5rem; }
+.btn { padding: 0.6rem 1.2rem; border-radius: 0.5rem; border: none; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: opacity 0.2s; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.primary { background: #000; color: white; }
+.btn.primary:hover:not(:disabled) { background: #333; }
+.btn.outline { background: transparent; border: 1px solid #cbd5e1; color: #000; }
+.btn.outline:hover:not(:disabled) { background: #f1f5f9; }
 
-.small {
-  padding: 0.4rem 0.5rem;
-  font-size: 0.85rem;
-}
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.btn-icon { background: none; border: none; cursor: pointer; font-size: 1.2rem; }
+.loading-text, .empty-text { text-align: center; color: #666; padding: 1rem; }
+.stats-list { display: flex; flex-direction: column; gap: 1rem; max-height: 400px; overflow-y: auto; }
+.stat-item { border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1rem; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.stat-header { display: flex; justify-content: space-between; font-size: 0.85rem; color: #333; margin-bottom: 0.5rem; font-weight: 500; }
+.stat-desc { font-weight: 700; margin-bottom: 0.5rem; color: #000; font-size: 1rem; }
+.small { padding: 0.4rem 0.5rem; font-size: 0.85rem; }
 
-/* --- ЛОГИ --- */
-.log {
-  max-height: 100px;
-  overflow-y: auto;
-  font-size: 0.75rem;
-  font-family: monospace;
-  background: #f1f5f9;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  color: #000;
-}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 </style>

@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import uvicorn
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -8,7 +7,7 @@ from contextlib import asynccontextmanager
 
 
 from src.api import router as main_router
-from src.config import KAFKA_TOPIC_AI_REQUEST
+from src.config import logger
 from src.kafka.producer import kafka_producer
 from src.kafka.consumer import kafka_consumer
 from src.managers import manager
@@ -16,14 +15,14 @@ from src.managers import manager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print(">>> System starting...")
+    logger.info(">>> System starting...")
     await kafka_producer.start()
     consumer_task = asyncio.create_task(kafka_consumer.start())
-    print(">>> Kafka started carefully")
+    logger.info(">>> Kafka started carefully")
 
     yield
 
-    print(">>> System shutting down...")
+    logger.info(">>> System shutting down...")
     kafka_consumer.stop()
 
     if not consumer_task.done():
@@ -31,18 +30,14 @@ async def lifespan(app: FastAPI):
         try:
             await consumer_task
         except asyncio.CancelledError:
-            print("Consumer task successfully cancelled")
+            logger.info("Consumer task successfully cancelled")
 
     await kafka_producer.stop()
-    print(">>> Shutdown complete.")
+    logger.info(">>> Shutdown complete.")
 
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(main_router)
-logging.basicConfig(
-    level=logging.INFO,
-)
-logger = logging.getLogger(__name__)
 
 app.add_middleware(
     CORSMiddleware,
@@ -53,7 +48,7 @@ app.add_middleware(
 )
 
 @app.websocket("/ws/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, user_id: str):
+async def websocket_endpoint(websocket: WebSocket, user_id: int):
     await manager.connect(user_id, websocket)
     try:
         logger.info("attempt to connect ws")

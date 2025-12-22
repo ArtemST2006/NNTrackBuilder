@@ -1,14 +1,14 @@
 import httpx
 from fastapi import APIRouter, HTTPException, status
 from src.models.JSONmodels import (
-    UserSignInResponse, 
-    UserSignInRequest, 
+    UserSignInResponse,
+    UserSignInRequest,
     UserSignUpRequest,
-    TelegramLinkRequest, 
-    TelegramAuthRequest, 
+    TelegramLinkRequest,
+    TelegramAuthRequest,
     TelegramUserResponse
 )
-from src.config import USER_SERVICE_URL
+from src.config import USER_SERVICE_URL, logger
 
 router = APIRouter(prefix="/api")
 
@@ -22,7 +22,7 @@ async def sign_up(user_data: UserSignUpRequest):
             )
 
         except httpx.RequestError as e:
-            print(f"Connection error: {e}")
+            logger.error(f"Connection error: {e}")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="User Service is unavailable"
@@ -43,7 +43,7 @@ async def sign_up(user_data: UserSignUpRequest):
 
 
 @router.post("/sign-in", response_model=UserSignInResponse, status_code=status.HTTP_200_OK)
-async def sign_in(user_data: UserSignInRequest): 
+async def sign_in(user_data: UserSignInRequest):
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
@@ -52,7 +52,7 @@ async def sign_in(user_data: UserSignInRequest):
             )
 
         except httpx.RequestError as e:
-            print(f"Connection error: {e}")
+            logger.error(f"Connection error: {e}")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="User Service is unavailable"
@@ -70,7 +70,7 @@ async def sign_in(user_data: UserSignInRequest):
         )
 
     data = response.json()
-    
+
     # User-service теперь сам возвращает токен
     return UserSignInResponse(
         token=data["token"],  # Токен уже есть в ответе User-service

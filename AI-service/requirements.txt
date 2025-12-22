@@ -1,0 +1,26 @@
+aiokafka==0.12.0
+annotated-types==0.7.0
+anyio==4.12.0
+async-timeout==5.0.1
+certifi==2025.11.12
+gigachat==0.1.43
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
+idna==3.11
+packaging==25.0
+pydantic==2.12.5
+pydantic_core==2.41.5
+typing-inspection==0.4.2
+typing_extensions==4.15.0
+numpy==1.26.4
+sentence-transformers>=3.0.0
+pybind11>=2.6.0
+# pydantic==1.10.13
+chromadb==0.4.24
+pyyaml>=6.0
+tqdm>=4.62.0
+pre-commit>=3.7.1
+hf_xet
+
+

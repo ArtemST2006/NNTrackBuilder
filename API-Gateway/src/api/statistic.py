@@ -1,7 +1,7 @@
 import httpx
 from fastapi import APIRouter, HTTPException, status, Depends
 
-from src.config import STATISTIC_SERVICE_URL
+from src.config import STATISTIC_SERVICE_URL, logger
 from src.midlware.utils import get_current_user_id
 
 
@@ -17,7 +17,7 @@ async def get_statistic(user_id: int = Depends(get_current_user_id) ):
             )
 
         except httpx.RequestError as e:
-            print(f"Connection error: {e}")
+            logger.error(f"Connection error: {e}")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="User Service is unavailable"

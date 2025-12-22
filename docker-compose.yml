@@ -75,11 +75,29 @@ services:
     container_name: api-gateway
     environment:
       - KAFKA_BOOTSTRAP=kafka:9092
+      - KAFKA_TOPIC_AI_REQUEST=ai.makePoints.request
+      - KAFKA_TOPIC_AI_RESPONSE=ai.makePoints.response
+      - KAFKA_GROUP_ID=api_gateway_group
+      - USER_SERVICE_URL=http://user-service:8001
+      - STATISTIC_SERVICE_URL=http://statistic-service:8002
     ports:
       - "8000:8000"
     depends_on:
       kafka:
         condition: service_healthy
+
+#  ai-service:
+#    build: ./AI-service
+#    container_name: ai-service
+#    environment:
+#      - KAFKA_BOOTSTRAP=kafka:9092
+#    ports:
+#      - "8004:8004"
+#    depends_on:
+#      kafka:
+#        condition: service_healthy
+#    volumes: 
+#      - ./rag/scripts/.model_cache
 
   user-service:
     build: ./User-service
@@ -104,6 +122,8 @@ services:
       - DB_PORT=5432
       - DB_HOST=postgres
       - KAFKA_BOOTSTRAP=kafka:9092
+      - KAFKA_TOPIC_AI_REQUEST=ai.makePoints.request
+      - KAFKA_TOPIC_AI_RESPONSE=ai.makePoints.response
     container_name: statistic-service
     ports:
       - "8002:8002"
@@ -120,7 +140,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "80:80"
+      - "80:5173"
     depends_on:
       - api-gateway
       - user-service

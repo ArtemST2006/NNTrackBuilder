@@ -24,6 +24,8 @@ MANIFEST
 
 # --- Virtual Environments (Твои папки с библиотеками) ---
 .venv/
+.venv_ai/
+.venv_rag/
 venv/
 env/
 ENV/
@@ -45,6 +47,12 @@ venv.bak/
 # --- Logs ---
 *.log
 logs/
+
+# --- NixOS ---
+*.nix
+
+# --- SentenceTransformer ---
+AI-service/rag/scripts/.model_cache
 
 # --- Testing / Coverage ---
 .coverage

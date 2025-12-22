@@ -224,9 +224,9 @@ const requestTimeoutId = ref(null)
 
 const interestOptions = [
   { id: 'cafes', label: 'Кофейни', icon: '☕' },
-  { id: 'street_art', label: 'Стрит-арт', icon: '🎨' },
-  { id: 'museums', label: 'Музеи', icon: '🏛️' },
-  { id: 'views', label: 'Панорамы', icon: '🌅' },
+  { id: 'street_art', label: 'Искусство', icon: '🎨' },
+  { id: 'museums', label: 'Музей', icon: '🏛️' },
+  { id: 'views', label: 'С детьми', icon: '🌅' },
   { id: 'architecture', label: 'Архитектура', icon: '🏗️' },
   { id: 'parks', label: 'Парки', icon: '🌳' },
   { id: 'shops', label: 'Магазины', icon: '🛍️' },
@@ -434,9 +434,9 @@ const drawRouteOnYandexMap = (places) => {
   mapInstance.geoObjects.add(multiRoute)
 }
 
-// --- Логика Геолокации ---
 const fillCoordsFromGeolocation = () =>
   new Promise((resolve) => {
+    // Если режим не GEO или нет API — сразу выходим, чтобы не ждать
     if (startMode.value !== 'geo' || !navigator.geolocation) {
       resolve()
       return
@@ -447,24 +447,55 @@ const fillCoordsFromGeolocation = () =>
         cords.value = `${latitude},${longitude}`
         resolve()
       },
-      () => resolve(),
+      () => resolve(), // Если ошибка — всё равно завершаем Promise
       { enableHighAccuracy: true, timeout: 5000 }
     )
   })
 
+// --- 2. НОВАЯ ФУНКЦИЯ: Безопасное получение координат по адресу ---
+const getCoordsByAddress = async () => {
+  // Если не введен адрес или не загрузился Яндекс — просто выходим
+  if (!place.value || !window.ymaps) return;
+
+  try {
+    const res = await window.ymaps.geocode(place.value);
+    const firstGeoObject = res.geoObjects.get(0);
+
+    if (firstGeoObject) {
+      const c = firstGeoObject.geometry.getCoordinates();
+      // Перезаписываем cords координатами найденного дома
+      cords.value = `${c[0]},${c[1]}`;
+      console.log('Координаты найдены:', cords.value);
+    }
+  } catch (e) {
+    console.error('Ошибка геокодирования:', e);
+    // Не выбрасываем ошибку дальше, чтобы не сломать отправку формы
+  }
+}
+
+// --- 3. Обновленный onSubmit ---
 const onSubmit = async () => {
+  console.log("Кнопка нажата"); // Для проверки
   loading.value = true
   error.value = null
   message.value = null
 
-  // --- NEW: Сбрасываем старый таймер если вдруг он есть ---
+  // Сброс таймера
   if (requestTimeoutId.value) clearTimeout(requestTimeoutId.value)
 
   try {
     if (customInterest.value.trim()) addCustomInterest()
 
+    // ШАГ 1: Сначала пробуем геолокацию (если выбран режим geo)
+    // Она отработает как и раньше
     await fillCoordsFromGeolocation()
 
+    // ШАГ 2: Если выбран РУЧНОЙ режим — пробуем найти координаты по адресу
+    if (startMode.value === 'manual') {
+       await getCoordsByAddress()
+    }
+
+    // --- ДАЛЕЕ ВАШ СТАРЫЙ КОД ФОРМИРОВАНИЯ ДАННЫХ ---
     let finalCategories = []
     const isAllSelected = category.value.includes('all')
 
@@ -485,12 +516,18 @@ const onSubmit = async () => {
       })
     }
 
+    // Если координаты так и не нашлись (пустые), можно отправить "0,0" или оставить как есть
+    // Но лучше, чтобы бэкенд получил хоть что-то
+    const finalCords = cords.value || ""
+
     const payload = {
       category: finalCategories,
       time: time.value,
-      cords: cords.value,
+      cords: finalCords,
       place: place.value
     }
+
+    console.log("Отправляем:", payload); // Смотрим в консоль, что улетает
 
     const resp = await api.post('/api/predict', payload, {
       headers: { Authorization: `Bearer ${auth.token}` }
@@ -499,20 +536,18 @@ const onSubmit = async () => {
     currentTaskId.value = resp.data.task_id
     message.value = `Запрос принят. Генерация маршрута...`
 
-    // --- NEW: Запускаем таймер на 2 минуты (120 000 мс) ---
+    // Таймер
     requestTimeoutId.value = setTimeout(() => {
-      // Код, который выполнится, если время вышло
       loading.value = false
-      error.value = 'Время ожидания истекло (2 мин). Сервер перегружен или недоступен.'
+      error.value = 'Время ожидания истекло (2 мин).'
       message.value = null
-      currentTaskId.value = null // Перестаем ждать этот task_id
+      currentTaskId.value = null
     }, 120000)
 
   } catch (err) {
     console.error(err)
     error.value = err.response?.data?.detail || 'Ошибка при отправке запроса'
     loading.value = false
-    // Если произошла ошибка при POST запросе, таймер не нужен
     if (requestTimeoutId.value) clearTimeout(requestTimeoutId.value)
   }
 }

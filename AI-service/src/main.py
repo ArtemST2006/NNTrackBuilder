@@ -2,12 +2,7 @@ import asyncio
 import logging
 import os
 import signal
-import sys
-from pathlib import Path
 from typing import Optional
-
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
 
 from src.services.rag_wrapper import RAGWrapper
 from src.kafka.producer import kafka_producer
@@ -35,7 +30,7 @@ class Service:
 
         logger.info("Starting Kafka consumer...")
         consumer_task = asyncio.create_task(
-            kafka_consumer.start(), name="kafka-consumer"
+            kafka_consumer.start(self._rag), name="kafka-consumer"
         )
         self._tasks.append(consumer_task)
         logger.info("Kafka consumer started.")

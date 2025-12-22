@@ -1,8 +1,7 @@
 import logging
-import subprocess
 from typing import Dict, Any
 
-from src.services.rag_wrapper import rag_wrapper
+from src.services.rag_wrapper import RAGWrapper
 from src.services.rag_utils import convert_rag_results_to_output
 from src.services.gigachat_service import GigachatService
 
@@ -11,7 +10,7 @@ logger = logging.getLogger(__name__)
 gigachat = GigachatService()
 
 
-async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
+async def handle_message(data: Dict[str, Any], rag: RAGWrapper) -> Dict[str, Any]:
     """
     Вход (из Kafka):
     {
@@ -84,7 +83,7 @@ async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
         )
 
         # 2. RAG
-        rag_results = await rag_wrapper.search_raw(query=query, user_lat=lat, user_lon=lon)
+        rag_results = await rag.search_raw(query=query, user_lat=lat, user_lon=lon)
 
         if not rag_results:
             return _error_response(user_id, task_id, "Места не найдены")

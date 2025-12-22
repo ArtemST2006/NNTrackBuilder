@@ -5,6 +5,7 @@ from aiokafka import AIOKafkaConsumer
 
 from src.config import KAFKA_BOOTSTRAP, KAFKA_TOPIC_AI_RESPONSE, KAFKA_GROUP_ID, KAFKA_TOPIC_AI_REQUEST
 
+from src.services.rag_wrapper import RAGWrapper
 from src.services.handler import handle_message
 from src.kafka.producer import kafka_producer
 
@@ -16,7 +17,7 @@ class KafkaResponseConsumer:
         self.running = False
         self.consumer = None
 
-    async def start(self):
+    async def start(self, rag: RAGWrapper):
         logger.info(f"CONSUMER: Starting... Topic: {KAFKA_TOPIC_AI_REQUEST}, Group: {KAFKA_GROUP_ID}")
 
         self.consumer = AIOKafkaConsumer(
@@ -41,7 +42,7 @@ class KafkaResponseConsumer:
                     data = json.loads(msg.value.decode('utf-8'))
 
                     logger.info(f"CONSUMER: Received message: {data}")
-                    await self.process_message(data)
+                    await self.process_message(data, rag)
 
                 except json.JSONDecodeError as e:
                     logger.error(f"CONSUMER: JSON Decode Error (Skipping). Error: {e}. Raw: {msg.value}")
@@ -65,8 +66,8 @@ class KafkaResponseConsumer:
                 await self.consumer.stop()
             logger.info("CONSUMER: Stopped.")
 
-    async def process_message(self, data: dict):
-        res = await handle_message(data)
+    async def process_message(self, data: dict, rag: RAGWrapper):
+        res = await handle_message(data, rag)
 
         await kafka_producer.send(KAFKA_TOPIC_AI_RESPONSE, res)
 

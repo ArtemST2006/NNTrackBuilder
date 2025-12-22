@@ -14,11 +14,11 @@ def get_interests_keyboard() -> ReplyKeyboardMarkup:
         keyboard=[
             [
                 KeyboardButton(text="☕ Кофейни"),
-                KeyboardButton(text="🎨 Стрит-арт"),
+                KeyboardButton(text="🎨 Искусство"),
             ],
             [
-                KeyboardButton(text="🏛️ Музеи"),
-                KeyboardButton(text="🌅 Панорамы"),
+                KeyboardButton(text="🏛️ Музей"),
+                KeyboardButton(text="🌅 С детьми"),
             ],
             [
                 KeyboardButton(text="🏛️ Архитектура"),

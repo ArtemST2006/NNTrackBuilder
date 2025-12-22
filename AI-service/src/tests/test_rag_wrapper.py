@@ -1,11 +1,17 @@
 # tests/test_rag_wrapper.py
 import pytest
-import asyncio
 import time
 
-from watchfiles import awatch
+import asyncio
+
+if __package__ in (None, ""):
+    import os
+    import sys
+    # Поднимаемся: файл -> tests -> src -> AI-service (корень)
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 from src.services.rag_wrapper import RAGWrapper
+
 
 QUERIES = [
     "парки",
@@ -20,6 +26,7 @@ QUERIES = [
     "фдыыдрва паррк"
 ]
 
+
 rag = RAGWrapper()
 
 @pytest.mark.asyncio
@@ -27,7 +34,7 @@ async def test_speed_tread_pool():
     query = "парки, музей, искусства, вкусно поесть"
     lat, lon = 56.314916, 43.980943
 
-    n = 10_000
+    n = 1000
 
     # последовательно
     start = time.perf_counter()

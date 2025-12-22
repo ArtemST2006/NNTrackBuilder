@@ -426,12 +426,12 @@ class HybridSearcher:
             max_distance: Optional[float] = None,
     ) -> List[Dict]:
 
-        print(f"Поиск: '{query}'")
-        if search_categories:
-            print(f"   Категории: {', '.join(search_categories)}")
-        if price_ranges:
-            print(f"   Цена: {', '.join(price_ranges)}")
-        print()
+        # print(f"Поиск: '{query}'")
+        # if search_categories:
+        #     print(f"   Категории: {', '.join(search_categories)}")
+        # if price_ranges:
+        #     print(f"   Цена: {', '.join(price_ranges)}")
+        # print()
 
         query_embedding = self.model.encode(query, convert_to_numpy=True).tolist()
         effective_min_score = self.get_effective_min_score(query, min_score)

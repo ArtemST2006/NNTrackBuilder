@@ -2,7 +2,11 @@ import asyncio
 import logging
 import os
 import signal
+import sys
 from typing import Optional
+
+if __package__ in (None, ""):
+    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from src.services.rag_wrapper import RAGWrapper
 from src.kafka.producer import kafka_producer

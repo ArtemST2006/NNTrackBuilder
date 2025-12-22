@@ -11,65 +11,6 @@ logger = logging.getLogger(__name__)
 gigachat = GigachatService()
 
 
-# def _parse_coords(value):
-#     if not value:
-#         return None, None
-#     if isinstance(value, (list, tuple)) and len(value) >= 2:
-#         parts = value[:2]
-#     elif isinstance(value, str):
-#         parts = value.split(",")
-#     else:
-#         return None, None
-
-#     if len(parts) < 2:
-#         return None, None
-
-#     try:
-#         lat = float(str(parts[0]).strip().replace(",", "."))
-#         lon = float(str(parts[1]).strip().replace(",", "."))
-#         return lat, lon
-#     except ValueError:
-#         return None, None
-
-MOCK_SEARCH_RESULTS = [
-    {
-        "id": "101",
-        "name": "Красная площадь",
-        "text": "Главная площадь Москвы, расположенная в центре радиально-кольцевой планировки го...",
-        "full_text": "Главная площадь Москвы, расположенная в центре радиально-кольцевой планировки города.",
-        "metadata": {
-            "name": "Красная площадь",
-            "city": "Москва",
-            "lat": 55.7558,
-            "lon": 37.6173,
-            "category": "sightseeing"
-        },
-        "distance": 0.05,
-        "base_score": 0.9523809523809523,
-        "bm25_score": 1.0,
-        "final_score": 0.975,
-        "tags": ["история", "архитектура", "центр"]
-    },
-    {
-        "id": "202",
-        "name": "Парк Горького",
-        "text": "Центральный парк культуры и отдыха имени Максима Горького — парковая зона в Моск...",
-        "full_text": "Центральный парк культуры и отдыха имени Максима Горького — парковая зона в Москве.",
-        "metadata": {
-            "name": "Парк Горького",
-            "city": "Москва",
-            "lat": 55.7282,
-            "lon": 37.6011
-        },
-        "distance": None,
-        "base_score": 0.0,
-        "bm25_score": 0.85,
-        "final_score": 0.425,
-        "tags": ["парк", "отдых"]
-    }
-]
-
-
 async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Вход (из Kafka):
@@ -123,6 +64,18 @@ async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
     cords = input_data.get("cords")
     place = input_data.get("place") or ""
 
+    lat, lon = 56.314916, 43.980943
+    if cords:
+        try:
+            coords = cords.split(", ")
+            lat, lon = float(coords[0]), float(coords[1])
+        except Exception as e:
+            print(f"Ошибка парсинга координат: {e}")
+
+    print(lat, lon)
+
+    print(lat, lon)
+
     try:
         # 1. query для RAG
         query = " ".join(categories) or "интересные места"
@@ -135,7 +88,7 @@ async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
         )
 
         # 2. RAG
-        rag_results = await rag_wrapper.search_raw(query=query)
+        rag_results = await rag_wrapper.search_raw(query=query, user_lat=lat, user_lon=lon)
         # rag_results = MOCK_SEARCH_RESULTS
 
         if not rag_results:
@@ -160,6 +113,10 @@ async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
         # GigachatService уже возвращает:
         # { "user_id", "task_id", "output", "description", "time", "long", "advice" }
         route_json["status"] = "ok"
+        # route_json["output"].insert(0, {
+        #     "coordinates": f"{}, 44.003185",
+        #     "description": "Кремль, Нижний Новгород"
+        # })
 
         return route_json
 

@@ -170,6 +170,7 @@ class GigachatService:
     def _validate_input_points(points: List[Dict[str, str]]) -> None:
         if not points:
             raise ValueError("Список points пуст — передайте хотя бы одну точку.")
+
         for i, p in enumerate(points, 1):
             if "coordinates" not in p or "description" not in p:
                 raise ValueError(f"Элемент #{i} в points не содержит 'coordinates' или 'description': {p}")
@@ -182,6 +183,7 @@ class GigachatService:
         user_id: int,
         task_id: str,
     ) -> Dict[str, Any]:
+
         required_root_keys = {"user_id", "task_id", "output", "description", "time", "long", "advice"}
         missing = required_root_keys - set(data.keys())
         if missing:

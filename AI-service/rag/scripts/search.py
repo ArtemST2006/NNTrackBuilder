@@ -79,14 +79,14 @@ class BM25Index:
         return ranked[:top_k]
 
 
-MODELS_CACHE = str(Path(__file__).parent / ".model_cache")
-MODEL_DIR = str(Path(MODELS_CACHE) / "models--DiTy--bi-encoder-russian-msmarco")
+# MODELS_CACHE = str(Path(__file__).parent / ".model_cache")
+# MODEL_DIR = str(Path(MODELS_CACHE) / "models--DiTy--bi-encoder-russian-msmarco")
 
 
-os.environ['TRANSFORMERS_CACHE'] = MODELS_CACHE
-os.environ['HF_HOME'] = MODELS_CACHE
-os.environ['HF_HUB_OFFLINE'] = '1'  # Отключить скачивание с интернета
-print(MODELS_CACHE)
+# os.environ['TRANSFORMERS_CACHE'] = MODELS_CACHE
+# os.environ['HF_HOME'] = MODELS_CACHE
+# os.environ['HF_HUB_OFFLINE'] = '1'  # Отключить скачивание с интернета
+# print(MODELS_CACHE)
 
 from sentence_transformers import SentenceTransformer
 

@@ -86,18 +86,19 @@ services:
       kafka:
         condition: service_healthy
 
-#  ai-service:
-#    build: ./AI-service
-#    container_name: ai-service
-#    environment:
-#      - KAFKA_BOOTSTRAP=kafka:9092
-#    ports:
-#      - "8004:8004"
-#    depends_on:
-#      kafka:
-#        condition: service_healthy
-#    volumes: 
-#      - ./rag/scripts/.model_cache
+  ai-service:
+    build: ./AI-service
+    container_name: ai-service
+    environment:
+      - KAFKA_BOOTSTRAP=kafka:9092
+      - HF_HOME=/data/huggingface_cache
+    ports:
+      - "8004:8004"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ai_models_data:/data/huggingface_cache
 
   user-service:
     build: ./User-service
@@ -156,3 +157,4 @@ services:
 volumes:
   postgres_data:
   kafka_data:
+  ai_models_data:

@@ -72,10 +72,6 @@ async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
         except Exception as e:
             print(f"Ошибка парсинга координат: {e}")
 
-    print(lat, lon)
-
-    print(lat, lon)
-
     try:
         # 1. query для RAG
         query = " ".join(categories) or "интересные места"
@@ -89,7 +85,6 @@ async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
 
         # 2. RAG
         rag_results = await rag_wrapper.search_raw(query=query, user_lat=lat, user_lon=lon)
-        # rag_results = MOCK_SEARCH_RESULTS
 
         if not rag_results:
             return _error_response(user_id, task_id, "Места не найдены")

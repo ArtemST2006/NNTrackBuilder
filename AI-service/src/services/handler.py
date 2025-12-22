@@ -113,10 +113,10 @@ async def handle_message(data: Dict[str, Any]) -> Dict[str, Any]:
         # GigachatService уже возвращает:
         # { "user_id", "task_id", "output", "description", "time", "long", "advice" }
         route_json["status"] = "ok"
-        # route_json["output"].insert(0, {
-        #     "coordinates": f"{}, 44.003185",
-        #     "description": "Кремль, Нижний Новгород"
-        # })
+        route_json["output"].insert(0, {
+            "coordinates": f"{lat}, {lon}",
+            "description": "Мое местоположение"
+        })
 
         return route_json
 

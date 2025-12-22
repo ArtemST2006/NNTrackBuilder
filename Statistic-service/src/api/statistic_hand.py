@@ -1,11 +1,10 @@
 from fastapi import APIRouter, HTTPException, status
 from fastapi.params import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from src.database import get_db
-from src.repository.statistic_postgres import StatisticRepository
 from src.config import logger
+from src.database import get_db
 from src.models.JSONmodels import StatisticResponse
+from src.repository.statistic_postgres import StatisticRepository
 
 router = APIRouter(prefix="/api")
 

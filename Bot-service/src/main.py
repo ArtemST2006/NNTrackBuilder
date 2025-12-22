@@ -2,18 +2,17 @@ import asyncio
 import logging
 import signal
 import sys
+
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-
 from config import config
-from services.websocket_client import gateway_ws
-
-from handlers.start import router as start_router
+from handlers.auth import router as auth_router
 from handlers.help import router as help_router
 from handlers.location import router as location_router
-from handlers.auth import router as auth_router
 from handlers.route import router as route_router
+from handlers.start import router as start_router
+from services.websocket_client import gateway_ws
 
 # Настройка логирования
 logging.basicConfig(
@@ -95,7 +94,6 @@ async def main():
         return
     
     # Проверяем доступность API Gateway
-    from services.api_client import api_client
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(f"{config.API_GATEWAY_URL}/docs", timeout=3) as resp:

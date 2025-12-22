@@ -1,5 +1,6 @@
 from aiogram.fsm.state import State, StatesGroup
 
+
 class RouteStates(StatesGroup):
     """Состояния для создания маршрута"""
     waiting_interests = State()      

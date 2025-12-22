@@ -1,9 +1,7 @@
 import httpx
-from fastapi import APIRouter, HTTPException, status, Depends
-
+from fastapi import APIRouter, Depends, HTTPException, status
 from src.config import STATISTIC_SERVICE_URL, logger
 from src.midlware.utils import get_current_user_id
-
 
 router = APIRouter(prefix="/api")
 

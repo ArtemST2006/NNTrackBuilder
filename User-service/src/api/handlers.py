@@ -1,19 +1,18 @@
-from fastapi import APIRouter, HTTPException, status, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
-
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.config import logger
+from src.database import get_db
+from src.midlware.utils import create_access_token, verify_password
 from src.models.JSONmodels import (
-    UserSignInResponse,
-    UserSignInRequest,
-    UserSignUpRequest,
+    TelegramAuthRequest,
     TelegramLinkRequest,
     TelegramUserResponse,
-    TelegramAuthRequest
+    UserSignInRequest,
+    UserSignInResponse,
+    UserSignUpRequest,
 )
-from src.database import get_db
 from src.repository.user_postgres import UserRepository
-from src.config import logger
-from src.midlware.utils import verify_password, create_access_token
 
 router = APIRouter()
 

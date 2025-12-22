@@ -1,20 +1,20 @@
+import builtins
+import contextlib
 import json
 import traceback
 from pathlib import Path
-from typing import Dict, List
 
 import chromadb
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
 MODEL_NAME = "DiTy/bi-encoder-russian-msmarco"
 
 
-def load_places_data(data_file: str) -> List[Dict]:
+def load_places_data(data_file: str) -> list[dict]:
     print(f"Загрузка данных из {data_file}")
 
     try:
-        with open(data_file, "r", encoding="utf-8") as f:
+        with open(data_file, encoding="utf-8") as f:
             data = json.load(f)
         print(f"Загружено {len(data)} мест\n")
         return data
@@ -44,17 +44,15 @@ def load_embeddings(embeddings_file: str) -> np.ndarray:
         exit(1)
 
 
-def create_vectordb(places: List[Dict], embeddings: np.ndarray, db_path: str) -> None:
+def create_vectordb(places: list[dict], embeddings: np.ndarray, db_path: str) -> None:
     db_dir = Path(db_path)
     db_dir.mkdir(parents=True, exist_ok=True)
 
     try:
         client = chromadb.PersistentClient(path=str(db_path))
 
-        try:
+        with contextlib.suppress(builtins.BaseException):
             client.delete_collection(name="places")
-        except:
-            pass
 
         collection = client.create_collection(
             name="places", metadata={"hnsw:space": "cosine"}
@@ -99,7 +97,7 @@ def create_vectordb(places: List[Dict], embeddings: np.ndarray, db_path: str) ->
             ids=ids, metadatas=metadatas, documents=documents, embeddings=vectors
         )
 
-        print(f"Данные загружены\n")
+        print("Данные загружены\n")
     except Exception as e:
         print(f"Ошибка при создании БД: {e}")
         exit(1)

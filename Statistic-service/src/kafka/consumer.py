@@ -1,13 +1,12 @@
-import json
-import logging
 import asyncio
-from sqlalchemy.exc import IntegrityError
+import json
 
 from aiokafka import AIOKafkaConsumer
-from src.config import KAFKA_BOOTSTRAP, KAFKA_TOPIC_AI_RESPONSE, KAFKA_GROUP_ID, logger
+from sqlalchemy.exc import IntegrityError
+from src.config import KAFKA_BOOTSTRAP, KAFKA_GROUP_ID, KAFKA_TOPIC_AI_RESPONSE, logger
 from src.database import async_session_maker
-from src.repository.statistic_postgres import StatisticRepository
 from src.models.JSONmodels import AIResponse
+from src.repository.statistic_postgres import StatisticRepository
 
 
 class KafkaResponseConsumer:

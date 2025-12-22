@@ -1,8 +1,9 @@
+import asyncio
 import json
 import logging
-import asyncio
+
 from aiokafka import AIOKafkaConsumer
-from src.config import KAFKA_BOOTSTRAP, KAFKA_TOPIC_AI_RESPONSE, KAFKA_GROUP_ID
+from src.config import KAFKA_BOOTSTRAP, KAFKA_GROUP_ID, KAFKA_TOPIC_AI_RESPONSE
 from src.managers import manager
 
 logger = logging.getLogger(__name__)

@@ -1,15 +1,13 @@
 import asyncio
-import uvicorn
-
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-
+import uvicorn
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from src.api import router as main_router
 from src.config import logger
-from src.kafka.producer import kafka_producer
 from src.kafka.consumer import kafka_consumer
+from src.kafka.producer import kafka_producer
 from src.managers import manager
 
 
@@ -53,7 +51,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
     try:
         logger.info("attempt to connect ws")
         while True:
-            data = await websocket.receive_text()
+            await websocket.receive_text()
 
     except WebSocketDisconnect:
         manager.disconnect(user_id)

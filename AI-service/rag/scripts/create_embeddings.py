@@ -2,7 +2,6 @@ import json
 import os
 import traceback
 from pathlib import Path
-from typing import Dict, List
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
@@ -17,11 +16,11 @@ os.environ["HF_HOME"] = MODELS_CACHE
 os.environ["HF_HUB_OFFLINE"] = "1"
 
 
-def load_places_data(data_file: str) -> List[Dict]:
+def load_places_data(data_file: str) -> list[dict]:
     print(f"Загрузка {data_file}")
 
     try:
-        with open(data_file, "r", encoding="utf-8") as f:
+        with open(data_file, encoding="utf-8") as f:
             data = json.load(f)
         print(f"Загружено {len(data)} мест")
         return data
@@ -34,7 +33,7 @@ def load_places_data(data_file: str) -> List[Dict]:
         exit(1)
 
 
-def prepare_embedding_text(place: Dict) -> str:
+def prepare_embedding_text(place: dict) -> str:
     text = place.get("search_text")
 
     if place.get("semantic_tags"):
@@ -44,7 +43,7 @@ def prepare_embedding_text(place: Dict) -> str:
     return text
 
 
-def create_embeddings(places: List[Dict], model_name: str = MODEL_NAME) -> np.ndarray:
+def create_embeddings(places: list[dict], model_name: str = MODEL_NAME) -> np.ndarray:
     print(f"\nЗагрузка {model_name}")
 
     try:
@@ -96,7 +95,7 @@ def main():
 
     save_embeddings(embeddings, str(EMBEDDINGS_FILE))
 
-    print(f"\nЭмбеддинги созданы")
+    print("\nЭмбеддинги созданы")
     print(f"Количество: {len(places)}")
 
 

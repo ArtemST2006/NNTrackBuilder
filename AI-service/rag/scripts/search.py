@@ -1,22 +1,21 @@
-from typing import Dict, List, Optional, Tuple
 import json
-import re
-import chromadb
-import os
-from pathlib import Path
 import math
+import os
+import re
+from pathlib import Path
 
+import chromadb
 
 
 class BM25Index:
-    def __init__(self, documents: Dict[str, str], k1: float = 1.5, b: float = 0.75):
+    def __init__(self, documents: dict[str, str], k1: float = 1.5, b: float = 0.75):
         self.documents = documents
         self.k1 = k1
         self.b = b
-        self.doc_lengths: Dict[str, int] = {}
+        self.doc_lengths: dict[str, int] = {}
         self.avg_doc_length: float = 0.0
-        self.postings: Dict[str, List[Tuple[str, int]]] = {}
-        self.doc_freqs: Dict[str, int] = {}
+        self.postings: dict[str, list[tuple[str, int]]] = {}
+        self.doc_freqs: dict[str, int] = {}
         self.N = len(documents)
         self._build()
 
@@ -25,14 +24,13 @@ class BM25Index:
             return
 
         total_length = 0
-        postings: Dict[str, List[Tuple[str, int]]] = {}
-        doc_freqs: Dict[str, int] = {}
+        postings: dict[str, list[tuple[str, int]]] = {}
+        doc_freqs: dict[str, int] = {}
 
         for doc_id, text in self.documents.items():
-            tokens = [normalize_token(tok) for tok in re.findall(r"[\w-]+", text.lower(), flags=re.UNICODE) 
-          if len(tok) >= 2]
+            tokens = re.findall(r"[\w-]+", text.lower(), flags=re.UNICODE)
             total_length += len(tokens)
-            term_counts: Dict[str, int] = {}
+            term_counts: dict[str, int] = {}
             for tok in tokens:
                 term_counts[tok] = term_counts.get(tok, 0) + 1
 
@@ -47,12 +45,12 @@ class BM25Index:
         self.avg_doc_length = total_length / max(1, self.N)
 
     def search(
-            self, query_tokens: List[str], top_k: int = 20
-    ) -> List[Tuple[str, float]]:
+            self, query_tokens: list[str], top_k: int = 20
+    ) -> list[tuple[str, float]]:
         if not query_tokens or not self.postings:
             return []
 
-        scores: Dict[str, float] = {}
+        scores: dict[str, float] = {}
         unique_terms = set(query_tokens)
 
         for term in unique_terms:
@@ -80,14 +78,14 @@ class BM25Index:
         return ranked[:top_k]
 
 
-# MODELS_CACHE = str(Path(__file__).parent / ".model_cache")
-# MODEL_DIR = str(Path(MODELS_CACHE) / "models--DiTy--bi-encoder-russian-msmarco")
+MODELS_CACHE = str(Path(__file__).parent / ".model_cache")
+MODEL_DIR = str(Path(MODELS_CACHE) / "models--DiTy--bi-encoder-russian-msmarco")
 
 
-# os.environ['TRANSFORMERS_CACHE'] = MODELS_CACHE
-# os.environ['HF_HOME'] = MODELS_CACHE
-# os.environ['HF_HUB_OFFLINE'] = '1'  # Отключить скачивание с интернета
-# print(MODELS_CACHE)
+os.environ['TRANSFORMERS_CACHE'] = MODELS_CACHE
+os.environ['HF_HOME'] = MODELS_CACHE
+os.environ['HF_HUB_OFFLINE'] = '1'  # Отключить скачивание с интернета
+print(MODELS_CACHE)
 
 from sentence_transformers import SentenceTransformer
 
@@ -170,32 +168,9 @@ QUERY_STOPWORDS = {
 }
 
 
-def normalize_token(token: str) -> str:
-    normalized = token.lower().replace("ё", "е")
-    
-    if len(normalized) <= 2:
-        return normalized
-    
-    plural_endings = ["и", "ы", "а", "я", "ь", "ья", "ьи", "ые", "ями", "ами"]
-    for ending in plural_endings:
-        if normalized.endswith(ending):
-            stem = normalized[:-len(ending)]
-            if len(stem) >= 2:
-                return stem
-    
-    for suffix in RU_SUFFIXES:
-        if normalized.endswith(suffix):
-            stem = normalized[:-len(suffix)]
-            if len(stem) >= 2:
-                return stem
-    
-    return normalized
-
-
-
 class HybridSearcher:
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         if db_path is None:
             db_path = str(Path(__file__).parent.parent / "chroma_db")
         db_path_value = Path(db_path)
@@ -229,9 +204,9 @@ class HybridSearcher:
         except Exception as e:
             print(f"Failed to load transformer model: {e}")
             raise
-        self.doc_store: Dict[str, str] = {}
+        self.doc_store: dict[str, str] = {}
 
-        self.metadata_store: Dict[str, Dict] = {}
+        self.metadata_store: dict[str, dict] = {}
         self._load_corpus()
         self.bm25_index = BM25Index(self.doc_store) if self.doc_store else None
 
@@ -248,9 +223,7 @@ class HybridSearcher:
             "kids": "для детей",
         }
 
-
-
-    def parse_tags_from_metadata(self, semantic_tags_str: str) -> List[str]:
+    def parse_tags_from_metadata(self, semantic_tags_str: str) -> list[str]:
         try:
             if isinstance(semantic_tags_str, list):
                 return semantic_tags_str
@@ -258,13 +231,22 @@ class HybridSearcher:
         except:
             return []
 
-    def tokenize_query(self, query: str) -> List[str]:
-        tokens = [normalize_token(tok) for tok in re.findall(r"[\w-]+", query.lower(), flags=re.UNICODE) 
-          if len(tok) >= 2]
-        
+    def tokenize_query(self, query: str) -> list[str]:
+        tokens = re.findall(r"[\w-]+", query.lower(), flags=re.UNICODE)
         return [t for t in tokens if len(t) >= 2 and t not in QUERY_STOPWORDS]
 
-    def _parse_coordinate(self, value: Optional[object]) -> Optional[float]:
+    def _normalize_token(self, token: str) -> str:
+        normalized = token.lower().replace("ё", "е")
+        if len(normalized) <= 3:
+            return normalized
+        for suffix in RU_SUFFIXES:
+            if normalized.endswith(suffix):
+                stem = normalized[: -len(suffix)]
+                if len(stem) >= 3:
+                    return stem
+        return normalized
+
+    def _parse_coordinate(self, value: object | None) -> float | None:
         if value is None:
             return None
         if isinstance(value, (int, float)):
@@ -279,7 +261,7 @@ class HybridSearcher:
                 return None
         return None
 
-    def _get_place_coords(self, metadata: Dict) -> Optional[Tuple[float, float]]:
+    def _get_place_coords(self, metadata: dict) -> tuple[float, float] | None:
         lat = self._parse_coordinate(metadata.get("lat"))
         if lat is None:
             lat = self._parse_coordinate(metadata.get("latitude"))
@@ -322,7 +304,7 @@ class HybridSearcher:
             ids = batch.get("ids") or []
             docs = batch.get("documents") or []
             metas = batch.get("metadatas") or []
-            for doc_id, doc_text, meta in zip(ids, docs, metas):
+            for doc_id, doc_text, meta in zip(ids, docs, metas, strict=False):
                 self.doc_store[str(doc_id)] = doc_text or ""
                 self.metadata_store[str(doc_id)] = meta or {}
             offset += len(ids)
@@ -336,7 +318,7 @@ class HybridSearcher:
             return LEXICAL_WEIGHT_MEDIUM_QUERY
         return LEXICAL_WEIGHT_LONG_QUERY
 
-    def compute_lexical_score(self, result: Dict, tokens: List[str]) -> float:
+    def compute_lexical_score(self, result: dict, tokens: list[str]) -> float:
         if not tokens:
             return 0.0
         meta = result.get("metadata", {})
@@ -352,7 +334,7 @@ class HybridSearcher:
         haystack = " ".join(str(f).lower() for f in fields if f)
         unique_tokens = set(tokens)
         words = set(re.findall(r"[\w-]+", haystack, flags=re.UNICODE))
-        normalized_words = {normalize_token(word) for word in words if word}
+        normalized_words = {self._normalize_token(word) for word in words if word}
         prefixes_4 = {word[:4] for word in words if len(word) >= 4}
         prefixes_5 = {word[:5] for word in words if len(word) >= 5}
         normalized_prefixes_4 = {
@@ -363,7 +345,7 @@ class HybridSearcher:
         }
         matches = 0
         for token in unique_tokens:
-            normalized_token = normalize_token(token)
+            normalized_token = self._normalize_token(token)
             if token in words or normalized_token in normalized_words:
                 matches += 1
                 continue
@@ -378,11 +360,10 @@ class HybridSearcher:
                     matches += 1
         return matches / len(unique_tokens)
 
-    def get_effective_min_score(self, query: str, min_score: Optional[float]) -> float:
+    def get_effective_min_score(self, query: str, min_score: float | None) -> float:
         if min_score is not None:
             return min_score
-        tokens = [normalize_token(tok) for tok in re.findall(r"[\w-]+", query.lower(), flags=re.UNICODE) 
-          if len(tok) >= 2]
+        tokens = re.findall(r"[\w-]+", query.lower(), flags=re.UNICODE)
         token_count = len(tokens)
         if token_count <= 2:
             return MIN_SCORE_SHORT_QUERY
@@ -391,12 +372,11 @@ class HybridSearcher:
         return MIN_SCORE_LONG_QUERY
 
     def get_effective_max_distance(
-            self, query: str, max_distance: Optional[float]
+            self, query: str, max_distance: float | None
     ) -> float:
         if max_distance is not None:
             return max_distance
-        tokens = [normalize_token(tok) for tok in re.findall(r"[\w-]+", query.lower(), flags=re.UNICODE) 
-          if len(tok) >= 2]
+        tokens = re.findall(r"[\w-]+", query.lower(), flags=re.UNICODE)
         token_count = len(tokens)
         if token_count <= 2:
             return MAX_DISTANCE_SHORT_QUERY
@@ -406,14 +386,14 @@ class HybridSearcher:
 
     def build_where_filter(
             self,
-            search_categories: Optional[List[str]] = None,
-            price_ranges: Optional[List[str]] = None,
-            seasons: Optional[List[str]] = None,
-    ) -> Optional[Dict]:
+            search_categories: list[str] | None = None,
+            price_ranges: list[str] | None = None,
+            seasons: list[str] | None = None,
+    ) -> dict | None:
 
         filters = []
 
-        def add_in_filter(field: str, values: Optional[List[str]]) -> None:
+        def add_in_filter(field: str, values: list[str] | None) -> None:
             if not values:
                 return
             cleaned = [v for v in values if v]
@@ -436,15 +416,15 @@ class HybridSearcher:
             self,
             query: str,
             n_results: int = 5,
-            search_categories: Optional[List[str]] = None,
-            price_ranges: Optional[List[str]] = None,
-            seasons: Optional[List[str]] = None,
-            city: Optional[str] = None,
-            user_lat: Optional[float] = None,
-            user_lon: Optional[float] = None,
-            min_score: Optional[float] = None,
-            max_distance: Optional[float] = None,
-    ) -> List[Dict]:
+            search_categories: list[str] | None = None,
+            price_ranges: list[str] | None = None,
+            seasons: list[str] | None = None,
+            city: str | None = None,
+            user_lat: float | None = None,
+            user_lon: float | None = None,
+            min_score: float | None = None,
+            max_distance: float | None = None,
+    ) -> list[dict]:
 
         print(f"Поиск: '{query}'")
         if search_categories:
@@ -500,9 +480,9 @@ class HybridSearcher:
         metas = raw_results["metadatas"][0]
         dists = raw_results["distances"][0]
 
-        candidate_map: Dict[str, Dict] = {}
+        candidate_map: dict[str, dict] = {}
 
-        for doc_id, doc_text, metadata, distance in zip(ids, docs, metas, dists):
+        for doc_id, doc_text, metadata, distance in zip(ids, docs, metas, dists, strict=False):
             if distance is None or distance > effective_max_distance:
                 continue
             base_score = 1.0 / (1.0 + distance)
@@ -525,7 +505,7 @@ class HybridSearcher:
             }
             candidate_map[str(doc_id)] = result
 
-        bm25_results: List[Tuple[str, float]] = []
+        bm25_results: list[tuple[str, float]] = []
         if self.bm25_index:
             bm25_results = self.bm25_index.search(
                 query_tokens, top_k=max(n_results * 5, n_results)
@@ -589,7 +569,7 @@ class HybridSearcher:
 
         return scored_results[:n_results]
 
-    def print_results(self, results: List[Dict], show_details: bool = True):
+    def print_results(self, results: list[dict], show_details: bool = True):
         if not results:
             print("Данных по вашему запросу не найдено.\n")
             return

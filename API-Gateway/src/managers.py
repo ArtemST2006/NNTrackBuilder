@@ -1,9 +1,10 @@
-from typing import Dict
+
 from fastapi import WebSocket
+
 
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: Dict[int, WebSocket] = {}
+        self.active_connections: dict[int, WebSocket] = {}
 
     async def connect(self, user_id: int, websocket: WebSocket):
         await websocket.accept()
@@ -20,7 +21,7 @@ class ConnectionManager:
         if socket:
             try:
                 await socket.send_json(message)
-            except Exception as e:
+            except Exception:
                 self.disconnect(user_id)
         else:
             print(f"User {user_id} not found in active connections")

@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, JSON
-from sqlalchemy.sql import func
+from sqlalchemy import JSON, Column, Float, Integer, String
 from src.database import Base
+
 
 class Statistic(Base):
     __tablename__ = "statistic"

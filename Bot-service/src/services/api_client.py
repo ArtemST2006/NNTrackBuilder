@@ -1,7 +1,9 @@
-import aiohttp
 import logging
-from typing import Dict, Any, Optional
+from typing import Any
+
+import aiohttp
 from config import config
+
 from .token_storage import token_storage
 
 logger = logging.getLogger(__name__)
@@ -22,7 +24,7 @@ class ApiClient:
             base_url: Базовый URL API Gateway (по умолчанию из config)
         """
         self.base_url = base_url or config.API_GATEWAY_URL
-        self.session: Optional[aiohttp.ClientSession] = None
+        self.session: aiohttp.ClientSession | None = None
     
     async def __aenter__(self):
         """Контекстный менеджер для автоматического подключения"""
@@ -53,7 +55,7 @@ class ApiClient:
             self.session = None
             logger.info("🌐 HTTP клиент отключен")
     
-    async def sign_in(self, email: str, password: str) -> Dict[str, Any]:
+    async def sign_in(self, email: str, password: str) -> dict[str, Any]:
         """
         Авторизация пользователя
         
@@ -122,7 +124,7 @@ class ApiClient:
                 "details": str(e)
             }
     
-    async def sign_up(self, email: str, username: str, password: str) -> Dict[str, Any]:
+    async def sign_up(self, email: str, username: str, password: str) -> dict[str, Any]:
         """
         Регистрация нового пользователя
         
@@ -198,8 +200,8 @@ class ApiClient:
         telegram_id: int,
         categories: list,
         time_hours: float,
-        location_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        location_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Отправить запрос на создание маршрута
         
@@ -307,7 +309,7 @@ class ApiClient:
                 "details": str(e)
             }
     
-    async def get_user_by_telegram(self, telegram_id: str) -> Dict[str, Any]:
+    async def get_user_by_telegram(self, telegram_id: str) -> dict[str, Any]:
         """
         Получить пользователя по Telegram ID
         
@@ -362,7 +364,7 @@ class ApiClient:
                 "details": str(e)
             }
 
-    async def auth_by_telegram(self, telegram_id: str) -> Dict[str, Any]:
+    async def auth_by_telegram(self, telegram_id: str) -> dict[str, Any]:
         """
         Авторизация по Telegram ID
         

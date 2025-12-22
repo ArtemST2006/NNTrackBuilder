@@ -1,11 +1,11 @@
+
 from aiogram.types import (
-    ReplyKeyboardMarkup,
-    KeyboardButton,
-    InlineKeyboardMarkup,
     InlineKeyboardButton,
-    ReplyKeyboardRemove
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
 )
-from typing import Optional
 
 
 def get_interests_keyboard() -> ReplyKeyboardMarkup:
@@ -122,7 +122,7 @@ def get_cancel_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
-def get_inline_login_keyboard(webapp_url: Optional[str] = None) -> InlineKeyboardMarkup:
+def get_inline_login_keyboard(webapp_url: str | None = None) -> InlineKeyboardMarkup:
     buttons = []
 
     if webapp_url:

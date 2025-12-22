@@ -1,15 +1,14 @@
 import asyncio
-from logging.config import fileConfig
-
-from sqlalchemy import pool
-from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
-
-from alembic import context
+import os
 
 # --- 1. НАСТРОЙКА ПУТЕЙ (чтобы видеть src) ---
 import sys
-import os
+from logging.config import fileConfig
+
+from alembic import context
+from sqlalchemy import pool
+from sqlalchemy.engine import Connection
+from sqlalchemy.ext.asyncio import async_engine_from_config
 
 # Выходим из migrations/env.py -> migrations -> User-service
 current_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -17,8 +16,7 @@ sys.path.insert(0, current_path)
 # ---------------------------------------------
 
 # --- 2. ИМПОРТ МОДЕЛЕЙ И КОНФИГА ---
-from src.database import Base, DATABASE_URL
-from src.models.tables import Statistic  # Импортируй сюда свои модели, чтобы Alembic их увидел
+from src.database import DATABASE_URL, Base
 
 # -----------------------------------
 

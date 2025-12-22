@@ -1,9 +1,10 @@
-from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
+
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.midlware.utils import get_password_hash
 from src.models.tables import User
-from typing import Optional
-from src.midlware.utils import get_password_hash 
+
 
 class UserRepository:
     def __init__(self, db: AsyncSession):
@@ -33,7 +34,7 @@ class UserRepository:
             raise e
 
     # МЕТОДЫ ДЛЯ TELEGRAM
-    async def get_by_telegram_id(self, telegram_id: str) -> Optional[User]:
+    async def get_by_telegram_id(self, telegram_id: str) -> User | None:
         query = select(User).where(User.telegram_id == telegram_id)
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
@@ -42,9 +43,9 @@ class UserRepository:
         self, 
         user_id: int, 
         telegram_id: str, 
-        telegram_username: Optional[str] = None,
-        first_name: Optional[str] = None,
-        last_name: Optional[str] = None
+        telegram_username: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None
     ) -> User:
         user = await self.get_by_id(user_id)
         if not user:
@@ -66,7 +67,7 @@ class UserRepository:
             await self.db.rollback()
             raise e
     
-    async def get_by_id(self, user_id: int) -> Optional[User]:
+    async def get_by_id(self, user_id: int) -> User | None:
         query = select(User).where(User.id == user_id)
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
@@ -75,9 +76,9 @@ class UserRepository:
         self,
         telegram_id: str,
         username: str,
-        telegram_username: Optional[str] = None,
-        first_name: Optional[str] = None,
-        last_name: Optional[str] = None
+        telegram_username: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None
     ) -> User:
         new_user = User(
             telegram_id=telegram_id,

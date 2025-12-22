@@ -1,14 +1,14 @@
 import httpx
 from fastapi import APIRouter, HTTPException, status
-from src.models.JSONmodels import (
-    UserSignInResponse,
-    UserSignInRequest,
-    UserSignUpRequest,
-    TelegramLinkRequest,
-    TelegramAuthRequest,
-    TelegramUserResponse
-)
 from src.config import USER_SERVICE_URL, logger
+from src.models.JSONmodels import (
+    TelegramAuthRequest,
+    TelegramLinkRequest,
+    TelegramUserResponse,
+    UserSignInRequest,
+    UserSignInResponse,
+    UserSignUpRequest,
+)
 
 router = APIRouter(prefix="/api")
 

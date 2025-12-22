@@ -1,10 +1,10 @@
-import datetime
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
-from src.models.tables import Statistic
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.JSONmodels import AIResponse, StatisticResponse
+from src.models.tables import Statistic
+
 
 class StatisticRepository:
     def __init__(self, db: AsyncSession):

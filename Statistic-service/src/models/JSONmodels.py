@@ -1,6 +1,6 @@
+
 from pydantic import BaseModel, ConfigDict
-from typing import List
-import datetime
+
 
 # спросить у дениса
 class PlaceItem(BaseModel):
@@ -10,7 +10,7 @@ class PlaceItem(BaseModel):
 class AIResponse(BaseModel):
     user_id: int
     task_id: str
-    output: List[PlaceItem]
+    output: list[PlaceItem]
     description: str
     time: float
     long: float
@@ -20,6 +20,6 @@ class AIResponse(BaseModel):
 
 
 class StatisticResponse(BaseModel):
-    statistic: List[AIResponse]
+    statistic: list[AIResponse]
 
 

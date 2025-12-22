@@ -1,9 +1,10 @@
-from passlib.context import CryptContext
 import hashlib
 from datetime import datetime, timedelta
+
 from jose import JWTError, jwt
-from typing import Optional
-from .. import config  
+from passlib.context import CryptContext
+
+from .. import config
 
 # Для хеширования паролей
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -22,7 +23,7 @@ SECRET_KEY = config.SECRET_KEY
 ALGORITHM = config.ALGORITHM
 ACCESS_TOKEN_EXPIRE_MINUTES = config.ACCESS_TOKEN_EXPIRE_MINUTES
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
     
     if expires_delta:
@@ -40,7 +41,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     
     return encoded_jwt
 
-def verify_token(token: str) -> Optional[dict]:
+def verify_token(token: str) -> dict | None:
     try:
         payload = jwt.decode(
             token, 

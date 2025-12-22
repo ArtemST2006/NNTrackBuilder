@@ -1,5 +1,6 @@
+
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+
 
 class UserSignInRequest(BaseModel):
     email: str
@@ -15,22 +16,22 @@ class UserSignInResponse(BaseModel):
     username: str
     message: str
     token: str
-    telegram_id: Optional[str] = None
+    telegram_id: str | None = None
 
 class TelegramLinkRequest(BaseModel):
     email: EmailStr
     password: str
     telegram_id: str
-    telegram_username: Optional[str] = None
+    telegram_username: str | None = None
 
 class TelegramUserResponse(BaseModel):
     user_id: int
     username: str
-    email: Optional[str] = None
-    telegram_id: Optional[str] = None  
-    telegram_username: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
+    email: str | None = None
+    telegram_id: str | None = None  
+    telegram_username: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
 
 class TelegramAuthRequest(BaseModel):
     telegram_id: str

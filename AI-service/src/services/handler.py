@@ -1,16 +1,16 @@
 import logging
-from typing import Dict, Any
+from typing import Any
 
-from src.services.rag_wrapper import RAGWrapper
-from src.services.rag_utils import convert_rag_results_to_output
 from src.services.gigachat_service import GigachatService
+from src.services.rag_utils import convert_rag_results_to_output
+from src.services.rag_wrapper import RAGWrapper
 
 logger = logging.getLogger(__name__)
 
 gigachat = GigachatService()
 
 
-async def handle_message(data: Dict[str, Any], rag: RAGWrapper) -> Dict[str, Any]:
+async def handle_message(data: dict[str, Any], rag: RAGWrapper) -> dict[str, Any]:
     """
     Вход (из Kafka):
     {
@@ -59,7 +59,7 @@ async def handle_message(data: Dict[str, Any], rag: RAGWrapper) -> Dict[str, Any
 
     input_data = data.get("input_data") or {}
     categories = input_data.get("category") or []
-    time_hours = input_data.get("time") or 3.0
+    input_data.get("time") or 3.0
     cords = input_data.get("cords")
     place = input_data.get("place") or ""
 
@@ -119,8 +119,8 @@ async def handle_message(data: Dict[str, Any], rag: RAGWrapper) -> Dict[str, Any
         return _error_response(user_id, task_id, str(e))
 
 
-def _error_response(user_id, task_id, msg: str | None = None) -> Dict[str, Any]:
-    resp: Dict[str, Any] = {
+def _error_response(user_id, task_id, msg: str | None = None) -> dict[str, Any]:
+    resp: dict[str, Any] = {
         "user_id": user_id,
         "task_id": task_id,
         "status": "error",

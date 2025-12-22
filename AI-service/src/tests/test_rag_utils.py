@@ -1,5 +1,7 @@
-import pytest
 import logging
+
+import pytest
+
 from src.services.rag_utils import convert_rag_results_to_output
 
 

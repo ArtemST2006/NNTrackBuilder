@@ -1,19 +1,18 @@
 import logging
 
-from aiogram import Router, types, F
+from aiogram import F, Router, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import ReplyKeyboardRemove
-
-from states import RouteStates
 from services.api_client import api_client
 from services.token_storage import token_storage
 from services.websocket_client import gateway_ws
+from states import RouteStates
 from utils.keyboards import (
     get_interests_keyboard,
-    get_time_keyboard,
     get_location_keyboard,
     get_main_menu_keyboard,
+    get_time_keyboard,
 )
 
 router = Router()
@@ -33,7 +32,9 @@ PRESET_INTERESTS = set(INTERESTS_MAP.keys())
 # ------------------- Парсим координаты ---------------------
 
 from urllib.parse import quote
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
 
 def _parse_coords(s: str):
     # "55.7558, 37.6173" -> (55.7558, 37.6173)

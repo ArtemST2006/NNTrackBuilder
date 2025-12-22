@@ -1,5 +1,3 @@
-import datetime
-from typing import List, Optional
 from pydantic import BaseModel, EmailStr
 
 
@@ -19,7 +17,7 @@ class UserSignInResponse(BaseModel):
     user_id: int
     username: str
     message: str
-    telegram_id: Optional[str] = None  
+    telegram_id: str | None = None  
 
 
 class TelegramAuthRequest(BaseModel):
@@ -30,17 +28,17 @@ class TelegramLinkRequest(BaseModel):
     email: EmailStr
     password: str
     telegram_id: str
-    telegram_username: Optional[str] = None
+    telegram_username: str | None = None
 
 
 class TelegramUserResponse(BaseModel):
     user_id: int
     username: str
-    email: Optional[str] = None
-    telegram_id: Optional[str] = None
-    telegram_username: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
+    email: str | None = None
+    telegram_id: str | None = None
+    telegram_username: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
 
 
 class AIRequest(BaseModel):
@@ -63,7 +61,7 @@ class PlaceItem(BaseModel):
 class AIResponse(BaseModel):
     user_id: int
     task_id: str
-    output: List[PlaceItem]
+    output: list[PlaceItem]
     description: str
     time: float
     long: float
@@ -71,4 +69,4 @@ class AIResponse(BaseModel):
 
 
 class StatisticResponse(BaseModel):
-    statistic: List[AIResponse]
+    statistic: list[AIResponse]

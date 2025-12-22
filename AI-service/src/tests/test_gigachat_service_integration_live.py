@@ -1,8 +1,7 @@
 import pytest
 
-from src.services.gigachat_service import GigachatService
 from src.config import GIGACHAT_CREDENTIALS
-
+from src.services.gigachat_service import GigachatService
 
 pytestmark = pytest.mark.integration
 

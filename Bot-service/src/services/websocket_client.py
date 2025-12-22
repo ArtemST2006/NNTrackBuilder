@@ -1,11 +1,14 @@
 import asyncio
+import builtins
+import contextlib
 import json
 import logging
-from typing import Dict, Optional, Callable, Any
-import websockets
-from websockets.exceptions import ConnectionClosed
+from collections.abc import Callable
+from typing import Any
 
+import websockets
 from config import config
+from websockets.exceptions import ConnectionClosed
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +16,10 @@ logger = logging.getLogger(__name__)
 class GatewayWebSocketClient:    # WebSocket клиент для подключения к API Gateway
     def __init__(self):
         # Подключение
-        self.connection: Optional[websockets.WebSocketClientProtocol] = None
+        self.connection: websockets.WebSocketClientProtocol | None = None
         self.connected: bool = False
-        self.user_id: Optional[int] = None
-        self.ws_url: Optional[str] = None
+        self.user_id: int | None = None
+        self.ws_url: str | None = None
         
         # Состояние
         self.running: bool = False
@@ -25,10 +28,10 @@ class GatewayWebSocketClient:    # WebSocket клиент для подключ�
         self.incoming_queue: asyncio.Queue = asyncio.Queue()
         
         # Ожидающие задачи: 
-        self.waiting_tasks: Dict[str, asyncio.Future] = {}
+        self.waiting_tasks: dict[str, asyncio.Future] = {}
         
         # Обработчики сообщений по типу
-        self.message_handlers: Dict[str, Callable] = {}
+        self.message_handlers: dict[str, Callable] = {}
         
         # Переподключение
         self.reconnect_attempts: int = 0
@@ -98,7 +101,7 @@ class GatewayWebSocketClient:    # WebSocket клиент для подключ�
         self.connected = False
         
         # Отменяем все ожидающие задачи
-        for task_id, future in self.waiting_tasks.items():
+        for _task_id, future in self.waiting_tasks.items():
             if not future.done():
                 future.set_exception(
                     ConnectionClosed(None, None, "Соединение закрыто")
@@ -108,10 +111,8 @@ class GatewayWebSocketClient:    # WebSocket клиент для подключ�
         
         # Закрываем соединение
         if self.connection:
-            try:
+            with contextlib.suppress(builtins.BaseException):
                 await self.connection.close()
-            except:
-                pass
             self.connection = None
         
         # Очищаем очередь
@@ -155,7 +156,7 @@ class GatewayWebSocketClient:    # WebSocket клиент для подключ�
                         self.incoming_queue.get(),
                         timeout=1.0
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
                 
                 # Обрабатываем сообщение
@@ -217,7 +218,7 @@ class GatewayWebSocketClient:    # WebSocket клиент для подключ�
         else:
             logger.error(f"❌ Достигнут максимум попыток переподключения ({self.max_reconnect_attempts})")
     
-    async def wait_for_task(self, task_id: str, timeout: int = None) -> Dict[str, Any]:
+    async def wait_for_task(self, task_id: str, timeout: int = None) -> dict[str, Any]:
         if not self.connected:
             return {
                 "success": False,
@@ -238,7 +239,7 @@ class GatewayWebSocketClient:    # WebSocket клиент для подключ�
             result = await asyncio.wait_for(future, timeout=timeout)
             return result
             
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Удаляем из ожидающих
             if task_id in self.waiting_tasks:
                 del self.waiting_tasks[task_id]
@@ -290,7 +291,7 @@ class GatewayWebSocketClient:    # WebSocket клиент для подключ�
         
         return await self.connect(user_id)
     
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         return {
             "connected": self.connected,
             "user_id": self.user_id,

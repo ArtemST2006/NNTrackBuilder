@@ -1,20 +1,20 @@
 import logging
-from aiogram import Router, types, F
+
+from aiogram import F, Router, types
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.types import ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
-
-from states import AuthStates
+from aiogram.types import (
+    ReplyKeyboardRemove,
+)
 from services.api_client import api_client
 from services.token_storage import token_storage
 from services.websocket_client import gateway_ws
+from states import AuthStates
 from utils.keyboards import (
-    get_main_menu_keyboard, 
     get_auth_keyboard,
     get_cancel_keyboard,
-    get_login_choice_keyboard
+    get_main_menu_keyboard,
 )
-from config import config
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -319,13 +319,13 @@ async def process_password(message: types.Message, state: FSMContext):
                     )
                     
                     if ws_connected:
-                        success_text += f"\n🌐 <b>WebSocket:</b> Подключен ✅"
+                        success_text += "\n🌐 <b>WebSocket:</b> Подключен ✅"
                     else:
-                        success_text += f"\n⚠️ <b>WebSocket:</b> Не подключен (переподключимся при создании маршрута)"
+                        success_text += "\n⚠️ <b>WebSocket:</b> Не подключен (переподключимся при создании маршрута)"
                     
                     success_text += (
-                        f"\n\n💡 <b>Telegram ID привязан!</b>\n"
-                        f"В следующий раз вход будет автоматическим."
+                        "\n\n💡 <b>Telegram ID привязан!</b>\n"
+                        "В следующий раз вход будет автоматическим."
                     )
                     
                     await message.answer(
@@ -627,9 +627,9 @@ async def handle_webapp_data(message: types.Message, state: FSMContext):
         )
         
         if ws_connected:
-            success_text += f"\n🌐 <b>WebSocket:</b> Подключен ✅"
+            success_text += "\n🌐 <b>WebSocket:</b> Подключен ✅"
         else:
-            success_text += f"\n⚠️ <b>WebSocket:</b> Не подключен"
+            success_text += "\n⚠️ <b>WebSocket:</b> Не подключен"
         
         await message.answer(
             success_text,

@@ -2,11 +2,10 @@ import asyncio
 import logging
 import os
 import signal
-from typing import Optional
 
-from src.services.rag_wrapper import RAGWrapper
-from src.kafka.producer import kafka_producer
 from src.kafka.consumer import kafka_consumer
+from src.kafka.producer import kafka_producer
+from src.services.rag_wrapper import RAGWrapper
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
@@ -65,7 +64,7 @@ def main() -> None:
 
     service = Service()
 
-    def _on_signal(sig: int, frame: Optional[object] = None) -> None:
+    def _on_signal(sig: int, frame: object | None = None) -> None:
         logger.info("Signal %s received", sig)
         service.stop()
 

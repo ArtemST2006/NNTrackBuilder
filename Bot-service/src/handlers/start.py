@@ -1,20 +1,18 @@
 from aiogram import Router, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-from services.token_storage import token_storage
 from services.api_client import api_client
+from services.token_storage import token_storage
 from services.websocket_client import gateway_ws
 from utils.keyboards import (
-    get_main_menu_keyboard, 
-    get_login_choice_keyboard,
-    get_auth_keyboard
+    get_auth_keyboard,
+    get_main_menu_keyboard,
 )
 
 router = Router()
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,7 +24,7 @@ async def try_auto_login(telegram_id: int) -> bool:
         token = token_storage.get_token(telegram_id)
         user_id = token_storage.get_user_id(telegram_id)
         
-        logger.info(f"✅ Найден токен в локальном хранилище")
+        logger.info("✅ Найден токен в локальном хранилище")
         if user_id:
             await gateway_ws.connect(user_id)
         return True

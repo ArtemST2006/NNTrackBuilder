@@ -1,11 +1,10 @@
 import uuid
 
-from fastapi import APIRouter, HTTPException, status, Depends
-
-from src.kafka.producer import kafka_producer
-from src.models.JSONmodels import AcceptResponse, AIRequest
+from fastapi import APIRouter, Depends, HTTPException, status
 from src.config import KAFKA_TOPIC_AI_REQUEST, logger
+from src.kafka.producer import kafka_producer
 from src.midlware.utils import get_current_user_id
+from src.models.JSONmodels import AcceptResponse, AIRequest
 
 router = APIRouter(prefix="/api")
 

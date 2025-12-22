@@ -1,8 +1,8 @@
 import json
-import os
 import logging
-from typing import Dict, Optional, Any
+import os
 from datetime import datetime, timedelta
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -25,18 +25,18 @@ class TokenStorage:
     
     def __init__(self, file_path: str = "tokens.json"):
         self.file_path = file_path
-        self.data: Dict[str, Dict[str, Any]] = {}
+        self.data: dict[str, dict[str, Any]] = {}
         self._load_data()
     
     def _load_data(self):
         try:
             if os.path.exists(self.file_path):
-                with open(self.file_path, 'r', encoding='utf-8') as f:
+                with open(self.file_path, encoding='utf-8') as f:
                     self.data = json.load(f)
                 logger.info(f"📂 Загружено {len(self.data)} токенов из {self.file_path}")
             else:
                 self.data = {}
-                logger.info(f"📂 Создано новое хранилище токенов")
+                logger.info("📂 Создано новое хранилище токенов")
         except Exception as e:
             logger.error(f"❌ Ошибка загрузки токенов: {e}")
             self.data = {}
@@ -48,7 +48,7 @@ class TokenStorage:
         except Exception as e:
             logger.error(f"❌ Ошибка сохранения токенов: {e}")
     
-    def get_token(self, telegram_id: int) -> Optional[str]:
+    def get_token(self, telegram_id: int) -> str | None:
         user_data = self.data.get(str(telegram_id))
         if not user_data:
             return None
@@ -68,13 +68,13 @@ class TokenStorage:
         
         return user_data.get('token')
     
-    def get_user_id(self, telegram_id: int) -> Optional[int]:
+    def get_user_id(self, telegram_id: int) -> int | None:
         user_data = self.data.get(str(telegram_id))
         if user_data:
             return user_data.get('user_id')
         return None
     
-    def get_user_data(self, telegram_id: int) -> Optional[Dict[str, Any]]:
+    def get_user_data(self, telegram_id: int) -> dict[str, Any] | None:
         return self.data.get(str(telegram_id))
     
     def set_token(
@@ -82,8 +82,8 @@ class TokenStorage:
         telegram_id: int, 
         token: str, 
         user_id: int,
-        email: Optional[str] = None,
-        username: Optional[str] = None,
+        email: str | None = None,
+        username: str | None = None,
         expires_in: int = 3600
     ):
         created_at = datetime.now()
@@ -105,8 +105,8 @@ class TokenStorage:
     def update_user_info(
         self,
         telegram_id: int,
-        email: Optional[str] = None,
-        username: Optional[str] = None
+        email: str | None = None,
+        username: str | None = None
     ):
         user_data = self.data.get(str(telegram_id))
         if user_data:
@@ -151,7 +151,7 @@ class TokenStorage:
         
         return expired_count
     
-    def get_all_users(self) -> Dict[str, Dict[str, Any]]:
+    def get_all_users(self) -> dict[str, dict[str, Any]]:
         return self.data.copy()
     
     def has_token(self, telegram_id: int) -> bool:

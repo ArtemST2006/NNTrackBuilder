@@ -1,8 +1,7 @@
 import logging
-from aiogram import Router, types, F
-from aiogram.fsm.context import FSMContext
 
-from states import RouteStates
+from aiogram import F, Router, types
+from aiogram.fsm.context import FSMContext
 from utils.keyboards import get_main_menu_keyboard
 
 router = Router()
